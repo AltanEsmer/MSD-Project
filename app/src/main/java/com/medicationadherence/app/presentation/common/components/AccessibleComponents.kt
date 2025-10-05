@@ -223,9 +223,9 @@ fun ProgressIndicator(
                 contentDescription = "Percentage: ${(progress * 100).toInt()}%"
             )
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         LinearProgressIndicator(
             progress = progress,
             modifier = Modifier
@@ -234,5 +234,78 @@ fun ProgressIndicator(
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
         )
+    }
+}
+
+/**
+ * Medication card item for the patient dashboard
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MedicationCardItem(
+    medicationWithSchedule: com.medicationadherence.app.domain.model.MedicationWithSchedule,
+    onTakeClick: (String) -> Unit,
+    onSkipClick: (String) -> Unit,
+    onDetailsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val medication = medicationWithSchedule.medication
+    val nextSchedule = medicationWithSchedule.schedules
+        .filter { it.status == com.medicationadherence.app.domain.model.AdherenceStatus.PENDING }
+        .minByOrNull { it.scheduledTime }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onDetailsClick
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = medication.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Dosage: ${medication.dosage}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            nextSchedule?.let { schedule ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Next: ${schedule.scheduledTime}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { onTakeClick(schedule.id) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Take")
+                    }
+                    OutlinedButton(
+                        onClick = { onSkipClick(schedule.id) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Skip")
+                    }
+                }
+            } ?: run {
+                // Show status if no pending schedule
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "All doses completed for today",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }

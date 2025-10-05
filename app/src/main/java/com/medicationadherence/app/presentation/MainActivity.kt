@@ -16,6 +16,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.medicationadherence.app.presentation.patient.screen.PatientDashboardScreen
 import com.medicationadherence.app.presentation.patient.screen.AddMedicationScreen
+import com.medicationadherence.app.presentation.patient.screen.MedicationDetailsScreen
 import com.medicationadherence.app.presentation.theme.MedicationAdherenceTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -56,11 +57,11 @@ fun MedicationApp() {
                         navController.navigate("add_medication")
                     },
                     onMedicationDetails = { medicationId ->
-                        // TODO: Navigate to medication details screen
+                        navController.navigate("medication_details/$medicationId")
                     }
                 )
             }
-            
+
             composable("add_medication") {
                 AddMedicationScreen(
                     onNavigateBack = {
@@ -68,11 +69,20 @@ fun MedicationApp() {
                     }
                 )
             }
-            
-            // TODO: Add more routes for:
-            // - Medication details screen
-            // - Settings screen
-            // - Family app screens
+
+            composable("medication_details/{medicationId}") { backStackEntry ->
+                val medicationId = backStackEntry.arguments?.getString("medicationId") ?: ""
+                MedicationDetailsScreen(
+                    medicationId = medicationId,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onEditMedication = { medId ->
+                        // TODO: Navigate to edit medication screen
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
     }
 }

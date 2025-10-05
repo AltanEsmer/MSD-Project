@@ -64,19 +64,24 @@ class LocalMedicationDataSource @Inject constructor(
     }
 
     suspend fun updateScheduleStatus(scheduleId: String, status: AdherenceStatus) {
-        val timestamp = if (status == AdherenceStatus.TAKEN) Clock.System.now().toString() else null
+        val timestamp = if (status == AdherenceStatus.TAKEN) {
+            val now = java.time.LocalDateTime.now()
+            "${now.year}-${now.monthValue.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')} ${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}:${now.second.toString().padStart(2, '0')}"
+        } else null
         medicationScheduleDao.updateScheduleStatus(scheduleId, status.name, timestamp)
     }
 
     // Adherence operations
     suspend fun logDose(medicationId: String, status: AdherenceStatus, notes: String? = null) {
-        val today = kotlinx.datetime.LocalDate(2024, 1, 1) // Temporary fix
+        val now = java.time.LocalDateTime.now()
+        val today = kotlinx.datetime.LocalDate(now.year, now.monthValue, now.dayOfMonth)
+        val timestamp = kotlinx.datetime.LocalDateTime(now.year, now.monthValue, now.dayOfMonth, now.hour, now.minute, now.second)
         val record = AdherenceRecord(
             id = UUID.randomUUID().toString(),
             medicationId = medicationId,
             date = today,
             status = status,
-            timestamp = null, // Temporary fix
+            timestamp = timestamp,
             notes = notes
         )
         adherenceRecordDao.insertAdherenceRecord(record.toEntity())
@@ -138,23 +143,28 @@ class LocalMedicationDataSource @Inject constructor(
     suspend fun snoozeReminder(medicationId: String, minutes: Int = 15) {
         val reminder = medicationReminderDao.getReminderForMedication(medicationId)
         if (reminder != null) {
+            val now = java.time.LocalDateTime.now()
+            val timestamp = "${now.year}-${now.monthValue.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')} ${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}:${now.second.toString().padStart(2, '0')}"
             medicationReminderDao.updateSnoozeInfo(
                 medicationId,
                 reminder.snoozeCount + 1,
-                Clock.System.now().toString()
+                timestamp
             )
         }
     }
 
     // Helper function to create schedules for a medication
     private suspend fun createSchedulesForMedication(medication: Medication) {
-        val today = kotlinx.datetime.LocalDate(2024, 1, 1) // Temporary fix
+        val now = java.time.LocalDateTime.now()
+        val today = kotlinx.datetime.LocalDate(now.year, now.monthValue, now.dayOfMonth)
         val schedules = mutableListOf<MedicationScheduleEntity>()
-        
+
         // Create schedules for next 7 days
         repeat(7) { dayOffset ->
-            val date = today // Temporary fix - skip date calculation
-            
+            val date = kotlinx.datetime.LocalDate(
+                today.year, today.month, today.dayOfMonth + dayOffset
+            )
+
             medication.frequency.forEach { timeString ->
                 val schedule = MedicationScheduleEntity(
                     id = UUID.randomUUID().toString(),
@@ -166,7 +176,7 @@ class LocalMedicationDataSource @Inject constructor(
                 schedules.add(schedule)
             }
         }
-        
+
         schedules.forEach { schedule ->
             medicationScheduleDao.insertSchedule(schedule)
         }

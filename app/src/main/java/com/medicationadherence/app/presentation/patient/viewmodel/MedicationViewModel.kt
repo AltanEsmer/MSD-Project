@@ -167,8 +167,11 @@ class MedicationViewModel @Inject constructor(
         val adherenceRate = MutableLiveData<Float>()
         viewModelScope.launch {
             try {
-                val today = kotlinx.datetime.LocalDate(2024, 1, 1) // Temporary fix
-                val weekAgo = kotlinx.datetime.LocalDate(2024, 1, 1) // Temporary fix
+                val now = java.time.LocalDateTime.now()
+                val today = kotlinx.datetime.LocalDate(now.year, now.monthValue, now.dayOfMonth)
+                val weekAgo = kotlinx.datetime.LocalDate(
+                    today.year, today.month, today.dayOfMonth - 7
+                )
                 medicationRepository.getAdherenceRate(medicationId, weekAgo, today)
                     .onEach { rate ->
                         adherenceRate.value = rate
