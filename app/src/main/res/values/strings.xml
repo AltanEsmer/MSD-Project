@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Medication Adherence</string>
+    
+    <!-- Patient App Strings -->
+    <string name="patient_dashboard_title">Today\'s Medications</string>
+    <string name="add_medication">Add Medication</string>
+    <string name="take_medication">Take</string>
+    <string name="skip_medication">Skip</string>
+    <string name="medication_taken">Taken</string>
+    <string name="medication_skipped">Skipped</string>
+    <string name="medication_missed">Missed</string>
+    <string name="medication_pending">Pending</string>
+    
+    <!-- Accessibility Strings -->
+    <string name="medication_name_description">Medication name: %1$s</string>
+    <string name="dosage_description">Dosage: %1$s</string>
+    <string name="scheduled_time_description">Scheduled time: %1$s</string>
+    <string name="medication_status_description">Medication status: %1$s</string>
+    <string name="take_medication_description">Take %1$s medication</string>
+    <string name="skip_medication_description">Skip %1$s medication</string>
+    <string name="add_medication_description">Add new medication</string>
+    <string name="loading_medications">Loading medications</string>
+    <string name="adherence_rate_description">Adherence rate: %1$d percent</string>
+    
+    <!-- Summary Strings -->
+    <string name="todays_summary">Today\'s Summary</string>
+    <string name="total_medications">Medications: %1$d</string>
+    <string name="medications_taken">Taken: %1$d</string>
+    <string name="todays_adherence">Today\'s Adherence</string>
+    
+    <!-- Empty State -->
+    <string name="no_medications_title">No Medications Yet</string>
+    <string name="no_medications_description">Add your first medication to get started with tracking your health journey.</string>
+    <string name="add_first_medication">Add Medication</string>
+    
+    <!-- Error Messages -->
+    <string name="error_loading_medications">Failed to load medications</string>
+    <string name="error_adding_medication">Failed to add medication</string>
+    <string name="error_updating_medication">Failed to update medication</string>
+    <string name="error_deleting_medication">Failed to delete medication</string>
+    
+    <!-- Notification Strings -->
+    <string name="medication_reminder_title">Time for your medication</string>
+    <string name="medication_reminder_body">It\'s time to take your %1$s (%2$s)</string>
+    <string name="missed_dose_title">Missed Medication</string>
+    <string name="missed_dose_body">You missed your %1$s medication</string>
+</resources>
