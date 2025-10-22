@@ -3,6 +3,9 @@ package com.medicationadherence.app.presentation.patient.screen
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -11,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.medicationadherence.app.presentation.patient.viewmodel.MedicationViewModel
 
@@ -28,39 +32,92 @@ fun AddMedicationScreen(
     var instructions by remember { mutableStateOf("") }
     var selectedTimes by remember { mutableStateOf(setOf<String>()) }
     
+    // Error states for validation
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var dosageError by remember { mutableStateOf<String?>(null) }
+    var frequencyError by remember { mutableStateOf<String?>(null) }
+    var showSuccessMessage by remember { mutableStateOf(false) }
+    
     val isLoading by viewModel.isLoading.collectAsState()
     val medicationAdded by viewModel.medicationAdded.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Add Medication") },
+                title = { 
+                    Text(
+                        text = "Add Medication",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
-                    TextButton(onClick = onNavigateBack) {
-                        Text("Cancel")
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 actions = {
-                    TextButton(
+                    FilledTonalButton(
                         onClick = {
-                            if (medicationName.isNotBlank() && dosage.isNotBlank() && selectedTimes.isNotEmpty()) {
+                            // Clear previous errors
+                            nameError = null
+                            dosageError = null
+                            frequencyError = null
+                            
+                            // Validate inputs
+                            var hasError = false
+                            
+                            if (medicationName.trim().isBlank()) {
+                                nameError = "Medication name is required"
+                                hasError = true
+                            }
+                            
+                            if (dosage.trim().isBlank()) {
+                                dosageError = "Dosage is required"
+                                hasError = true
+                            }
+                            
+                            if (selectedTimes.isEmpty()) {
+                                frequencyError = "Please select at least one time"
+                                hasError = true
+                            }
+                            
+                            // If no errors, submit
+                            if (!hasError) {
                                 viewModel.addMedication(
-                                    name = medicationName,
-                                    dosage = dosage,
-                                    frequency = selectedTimes.toList(),
-                                    instructions = instructions
+                                    name = medicationName.trim(),
+                                    dosage = dosage.trim(),
+                                    frequency = selectedTimes.toList().sorted(),
+                                    instructions = instructions.trim()
                                 )
                             }
                         },
-                        enabled = medicationName.isNotBlank() && dosage.isNotBlank() && selectedTimes.isNotEmpty() && !isLoading
+                        enabled = !isLoading,
+                        modifier = Modifier.padding(end = 8.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Save",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text("Save")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -72,40 +129,52 @@ fun AddMedicationScreen(
             // Navigate back when medication is added
             LaunchedEffect(medicationAdded) {
                 if (medicationAdded) {
+                    snackbarHostState.showSnackbar(
+                        message = "Medication added successfully",
+                        duration = SnackbarDuration.Short
+                    )
                     viewModel.clearMedicationAdded()
                     onNavigateBack()
                 }
             }
-            // Error message
-            errorMessage?.let { error ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
-                    Text(
-                        text = error,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer
+            
+            // Show error message from ViewModel
+            LaunchedEffect(errorMessage) {
+                errorMessage?.let { error ->
+                    snackbarHostState.showSnackbar(
+                        message = error,
+                        duration = SnackbarDuration.Long
                     )
+                    viewModel.clearError()
                 }
             }
 
             // Medication Name
             OutlinedTextField(
                 value = medicationName,
-                onValueChange = { medicationName = it },
+                onValueChange = { 
+                    medicationName = it
+                    nameError = null // Clear error on change
+                },
                 label = { Text("Medication Name") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                isError = nameError != null,
+                supportingText = nameError?.let { { Text(it) } }
             )
 
             // Dosage
             OutlinedTextField(
                 value = dosage,
-                onValueChange = { dosage = it },
+                onValueChange = { 
+                    dosage = it
+                    dosageError = null // Clear error on change
+                },
                 label = { Text("Dosage (e.g., 10mg, 1 tablet)") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                isError = dosageError != null,
+                supportingText = dosageError?.let { { Text(it) } }
             )
 
             // Instructions
@@ -118,11 +187,21 @@ fun AddMedicationScreen(
             )
 
             // Frequency Selection
-            Text(
-                text = "Frequency",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Column {
+                Text(
+                    text = "Frequency",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                frequencyError?.let { error ->
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    )
+                }
+            }
 
             val timeOptions = listOf(
                 "08:00" to "Morning",
@@ -146,20 +225,22 @@ fun AddMedicationScreen(
                                     } else {
                                         selectedTimes + time
                                     }
+                                    frequencyError = null // Clear error on selection
                                 },
                                 role = Role.Checkbox
                             )
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RadioButton(
-                            selected = selectedTimes.contains(time),
-                            onClick = null
+                        Checkbox(
+                            checked = selectedTimes.contains(time),
+                            onCheckedChange = null
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "$label ($time)",
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontSize = 18.sp
                         )
                     }
                 }

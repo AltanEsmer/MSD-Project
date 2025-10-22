@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import java.util.concurrent.TimeUnit
 
 /**
@@ -37,7 +38,8 @@ class MedicationReminderWorker @AssistedInject constructor(
             }
 
             // Check if medication was already taken
-            val today = kotlinx.datetime.LocalDate(2024, 1, 1) // Temporary fix
+            val today = kotlinx.datetime.Clock.System.now()
+                .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).date
             val schedules = localDataSource.getMedicationSchedules(today)
             
             // For now, we'll just log that the reminder was triggered

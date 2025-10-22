@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,7 +43,7 @@ class MedicationRepositoryImpl @Inject constructor(
     }
 
     override fun getTodayMedications(): Flow<List<MedicationWithSchedule>> {
-        val today = kotlinx.datetime.LocalDate(2024, 1, 1) // Temporary fix
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
         return getMedicationsForDate(today)
     }
 
@@ -110,7 +111,8 @@ class MedicationRepositoryImpl @Inject constructor(
     }
 
     private suspend fun calculateAdherenceRate(medicationId: String, date: LocalDate): Float {
-        val startDate = kotlinx.datetime.LocalDate(2024, 1, 1) // Temporary fix
+        val currentDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val startDate = LocalDate(currentDate.year, currentDate.month, currentDate.dayOfMonth - 30)
         return localDataSource.getAdherenceRate(medicationId, startDate, date)
     }
 }

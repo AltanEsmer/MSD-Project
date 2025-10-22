@@ -31,11 +31,24 @@ fun MedicationDetailsScreen(
     onEditMedication: (String) -> Unit = {}
 ) {
     val todayMedications by viewModel.todayMedications.collectAsState()
+    val adherenceHistory by viewModel.adherenceHistory.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     val medicationWithSchedule = todayMedications.find { it.medication.id == medicationId }
     val medication = medicationWithSchedule?.medication
+    
+    // Load adherence history when screen opens
+    LaunchedEffect(medicationId) {
+        viewModel.loadAdherenceHistory(medicationId, days = 7)
+    }
+    
+    // Clear adherence history when screen is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearAdherenceHistory()
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -150,7 +163,23 @@ fun MedicationDetailsScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             // Show last 7 days of adherence records
-                            AdherenceHistoryList(medicationId = medication.id)
+                            if (adherenceHistory.isEmpty()) {
+                                Text(
+                                    text = "No adherence history yet. Start taking your medications to build your history!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                adherenceHistory.forEach { record ->
+                                    AdherenceHistoryItem(
+                                        date = record.date,
+                                        status = record.status,
+                                        time = record.timestamp?.let { 
+                                            "${it.hour.toString().padStart(2, '0')}:${it.minute.toString().padStart(2, '0')}"
+                                        } ?: "N/A"
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -181,7 +210,10 @@ fun MedicationDetailsScreen(
                                     Text("Edit Medication")
                                 }
                                 Button(
-                                    onClick = { viewModel.deleteMedication(medication.id) },
+                                    onClick = { 
+                                        viewModel.deleteMedication(medication.id)
+                                        onNavigateBack()
+                                    },
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = MaterialTheme.colorScheme.error
@@ -234,34 +266,6 @@ fun ScheduleItem(
                     Text("Take")
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun AdherenceHistoryList(medicationId: String) {
-    // For now, show a placeholder. In a real implementation,
-    // you'd fetch adherence history from the ViewModel
-    Column {
-        val now = java.time.LocalDateTime.now()
-        val today = kotlinx.datetime.LocalDate(now.year, now.monthValue, now.dayOfMonth)
-        repeat(7) { day ->
-            // Create dates for the last 7 days
-            val date = when (day) {
-                0 -> today
-                1 -> kotlinx.datetime.LocalDate(today.year, today.month, today.dayOfMonth - 1)
-                2 -> kotlinx.datetime.LocalDate(today.year, today.month, today.dayOfMonth - 2)
-                3 -> kotlinx.datetime.LocalDate(today.year, today.month, today.dayOfMonth - 3)
-                4 -> kotlinx.datetime.LocalDate(today.year, today.month, today.dayOfMonth - 4)
-                5 -> kotlinx.datetime.LocalDate(today.year, today.month, today.dayOfMonth - 5)
-                6 -> kotlinx.datetime.LocalDate(today.year, today.month, today.dayOfMonth - 6)
-                else -> today
-            }
-            AdherenceHistoryItem(
-                date = date,
-                status = if (day % 3 == 0) AdherenceStatus.TAKEN else AdherenceStatus.SKIPPED,
-                time = "08:00"
-            )
         }
     }
 }

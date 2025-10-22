@@ -35,6 +35,9 @@ class MedicationViewModel @Inject constructor(
     private val _medicationAdded = MutableStateFlow(false)
     val medicationAdded: StateFlow<Boolean> = _medicationAdded.asStateFlow()
 
+    private val _adherenceHistory = MutableStateFlow<List<AdherenceRecord>>(emptyList())
+    val adherenceHistory: StateFlow<List<AdherenceRecord>> = _adherenceHistory.asStateFlow()
+
     init {
         loadTodayMedications()
     }
@@ -182,5 +185,44 @@ class MedicationViewModel @Inject constructor(
             }
         }
         return adherenceRate
+    }
+
+    /**
+     * Load adherence history for a medication
+     * @param medicationId The medication ID
+     * @param days Number of days to look back (default 7)
+     */
+    fun loadAdherenceHistory(medicationId: String, days: Int = 7) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val now = java.time.LocalDateTime.now()
+                val endDate = kotlinx.datetime.LocalDate(now.year, now.monthValue, now.dayOfMonth)
+                val startDate = kotlinx.datetime.LocalDate(
+                    endDate.year, endDate.month, endDate.dayOfMonth - days
+                )
+                
+                medicationRepository.getAdherenceHistory(medicationId, startDate, endDate)
+                    .onEach { history ->
+                        _adherenceHistory.value = history.sortedByDescending { it.date }
+                        _isLoading.value = false
+                    }
+                    .catch { exception ->
+                        _errorMessage.value = exception.message
+                        _isLoading.value = false
+                    }
+                    .launchIn(viewModelScope)
+            } catch (e: Exception) {
+                _errorMessage.value = e.message
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Clear adherence history
+     */
+    fun clearAdherenceHistory() {
+        _adherenceHistory.value = emptyList()
     }
 }
