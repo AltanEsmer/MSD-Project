@@ -57,7 +57,7 @@ class LocalMedicationDataSource @Inject constructor(
     }
 
     // Schedule operations
-    suspend fun getMedicationSchedules(date: LocalDate): Flow<List<MedicationSchedule>> {
+    fun getMedicationSchedules(date: LocalDate): Flow<List<MedicationSchedule>> {
         return medicationScheduleDao.getSchedulesForDate(date.toString()).map { entities ->
             entities.map { it.toDomain() }
         }
@@ -161,9 +161,10 @@ class LocalMedicationDataSource @Inject constructor(
 
         // Create schedules for next 7 days
         repeat(7) { dayOffset ->
-            val date = kotlinx.datetime.LocalDate(
-                today.year, today.month, today.dayOfMonth + dayOffset
-            )
+            // Use java.time to properly handle date arithmetic
+            val javaDate = java.time.LocalDate.of(today.year, today.monthNumber, today.dayOfMonth)
+                .plusDays(dayOffset.toLong())
+            val date = kotlinx.datetime.LocalDate(javaDate.year, javaDate.monthValue, javaDate.dayOfMonth)
 
             medication.frequency.forEach { timeString ->
                 val schedule = MedicationScheduleEntity(

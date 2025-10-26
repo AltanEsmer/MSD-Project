@@ -20,7 +20,7 @@ interface MedicationRepository {
     fun getMedicationsForDate(date: LocalDate): Flow<List<MedicationWithSchedule>>
     
     // Medication schedules
-    suspend fun getMedicationSchedules(date: LocalDate): Flow<List<MedicationSchedule>>
+    fun getMedicationSchedules(date: LocalDate): Flow<List<MedicationSchedule>>
     suspend fun updateScheduleStatus(scheduleId: String, status: AdherenceStatus)
     
     // Adherence tracking

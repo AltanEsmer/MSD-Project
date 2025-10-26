@@ -46,18 +46,17 @@ class MedicationViewModel @Inject constructor(
      * Load today's medications
      */
     fun loadTodayMedications() {
+        _isLoading.value = true
         viewModelScope.launch {
-            _isLoading.value = true
-            medicationRepository.getTodayMedications()
-                .onEach { medications ->
+            try {
+                medicationRepository.getTodayMedications().collect { medications ->
                     _todayMedications.value = medications
                     _isLoading.value = false
                 }
-                .catch { exception ->
-                    _errorMessage.value = exception.message
-                    _isLoading.value = false
-                }
-                .launchIn(viewModelScope)
+            } catch (exception: Exception) {
+                _errorMessage.value = exception.message
+                _isLoading.value = false
+            }
         }
     }
 
@@ -73,17 +72,26 @@ class MedicationViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _isLoading.value = true
+                android.util.Log.d("MedicationViewModel", "Adding medication: name=$name, dosage=$dosage, frequency=$frequency")
+                
                 val medication = Medication(
                     name = name,
                     dosage = dosage,
                     frequency = frequency,
                     instructions = instructions
                 )
-                medicationRepository.insertMedication(medication)
+                
+                val medicationId = medicationRepository.insertMedication(medication)
+                android.util.Log.d("MedicationViewModel", "Medication added successfully with ID: $medicationId")
+                
                 _medicationAdded.value = true
                 _isLoading.value = false
+                
+                // Reload medications to show the new one
+                loadTodayMedications()
             } catch (e: Exception) {
-                _errorMessage.value = e.message
+                android.util.Log.e("MedicationViewModel", "Error adding medication", e)
+                _errorMessage.value = e.message ?: "Failed to add medication"
                 _isLoading.value = false
             }
         }
@@ -171,10 +179,12 @@ class MedicationViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val now = java.time.LocalDateTime.now()
-                val today = kotlinx.datetime.LocalDate(now.year, now.monthValue, now.dayOfMonth)
-                val weekAgo = kotlinx.datetime.LocalDate(
-                    today.year, today.month, today.dayOfMonth - 7
-                )
+                val javaToday = java.time.LocalDate.of(now.year, now.monthValue, now.dayOfMonth)
+                val javaWeekAgo = javaToday.minusDays(7)
+                
+                val today = kotlinx.datetime.LocalDate(javaToday.year, javaToday.monthValue, javaToday.dayOfMonth)
+                val weekAgo = kotlinx.datetime.LocalDate(javaWeekAgo.year, javaWeekAgo.monthValue, javaWeekAgo.dayOfMonth)
+                
                 medicationRepository.getAdherenceRate(medicationId, weekAgo, today)
                     .onEach { rate ->
                         adherenceRate.value = rate
@@ -197,10 +207,11 @@ class MedicationViewModel @Inject constructor(
             try {
                 _isLoading.value = true
                 val now = java.time.LocalDateTime.now()
-                val endDate = kotlinx.datetime.LocalDate(now.year, now.monthValue, now.dayOfMonth)
-                val startDate = kotlinx.datetime.LocalDate(
-                    endDate.year, endDate.month, endDate.dayOfMonth - days
-                )
+                val javaEndDate = java.time.LocalDate.of(now.year, now.monthValue, now.dayOfMonth)
+                val javaStartDate = javaEndDate.minusDays(days.toLong())
+                
+                val endDate = kotlinx.datetime.LocalDate(javaEndDate.year, javaEndDate.monthValue, javaEndDate.dayOfMonth)
+                val startDate = kotlinx.datetime.LocalDate(javaStartDate.year, javaStartDate.monthValue, javaStartDate.dayOfMonth)
                 
                 medicationRepository.getAdherenceHistory(medicationId, startDate, endDate)
                     .onEach { history ->

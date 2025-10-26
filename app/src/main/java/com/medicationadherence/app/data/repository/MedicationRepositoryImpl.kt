@@ -48,17 +48,18 @@ class MedicationRepositoryImpl @Inject constructor(
     }
 
     override fun getMedicationsForDate(date: LocalDate): Flow<List<MedicationWithSchedule>> {
-        return kotlinx.coroutines.flow.flow {
-            val schedules = localDataSource.getMedicationSchedules(date)
-            schedules.collect { scheduleList ->
+        return localDataSource.getMedicationSchedules(date)
+            .map { scheduleList ->
                 val medicationIds = scheduleList.map { it.medicationId }.distinct()
-                val medications = medicationIds.mapNotNull { id ->
-                    localDataSource.getMedicationById(id)
+                val medications = runBlocking {
+                    medicationIds.mapNotNull { id ->
+                        localDataSource.getMedicationById(id)
+                    }
                 }
                 
-                val result = medications.map { medication ->
+                medications.map { medication ->
                     val medicationSchedules = scheduleList.filter { it.medicationId == medication.id }
-                    val adherenceRate = calculateAdherenceRate(medication.id, date)
+                    val adherenceRate = runBlocking { calculateAdherenceRate(medication.id, date) }
                     
                     MedicationWithSchedule(
                         medication = medication,
@@ -66,12 +67,10 @@ class MedicationRepositoryImpl @Inject constructor(
                         adherenceRate = adherenceRate
                     )
                 }
-                emit(result)
             }
-        }
     }
 
-    override suspend fun getMedicationSchedules(date: LocalDate): Flow<List<MedicationSchedule>> {
+    override fun getMedicationSchedules(date: LocalDate): Flow<List<MedicationSchedule>> {
         return localDataSource.getMedicationSchedules(date)
     }
 
@@ -112,7 +111,10 @@ class MedicationRepositoryImpl @Inject constructor(
 
     private suspend fun calculateAdherenceRate(medicationId: String, date: LocalDate): Float {
         val currentDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-        val startDate = LocalDate(currentDate.year, currentDate.month, currentDate.dayOfMonth - 30)
+        // Use java.time for proper date arithmetic
+        val javaCurrentDate = java.time.LocalDate.of(currentDate.year, currentDate.monthNumber, currentDate.dayOfMonth)
+        val javaStartDate = javaCurrentDate.minusDays(30)
+        val startDate = LocalDate(javaStartDate.year, javaStartDate.monthValue, javaStartDate.dayOfMonth)
         return localDataSource.getAdherenceRate(medicationId, startDate, date)
     }
 }

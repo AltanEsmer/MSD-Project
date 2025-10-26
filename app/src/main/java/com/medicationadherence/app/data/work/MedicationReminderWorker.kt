@@ -10,6 +10,7 @@ import dagger.assisted.AssistedInject
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
@@ -40,7 +41,8 @@ class MedicationReminderWorker @AssistedInject constructor(
             // Check if medication was already taken
             val today = kotlinx.datetime.Clock.System.now()
                 .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).date
-            val schedules = localDataSource.getMedicationSchedules(today)
+            val schedulesFlow = localDataSource.getMedicationSchedules(today)
+            val schedules = schedulesFlow.first() // Get first emission
             
             // For now, we'll just log that the reminder was triggered
             // In a real implementation, you would show a notification here

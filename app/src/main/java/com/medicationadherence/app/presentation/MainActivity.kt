@@ -132,6 +132,11 @@ fun MedicationApp(
                     },
                     onAddMedication = {
                         navController.navigate("add_medication")
+                    },
+                    onSwitchToCaregiverMode = {
+                        navController.navigate("family_dashboard") {
+                            popUpTo("patient_dashboard") { inclusive = true }
+                        }
                     }
                 )
             }
@@ -247,16 +252,79 @@ fun MedicationApp(
             composable("family_dashboard") {
                 FamilyDashboardScreen(
                     onNavigateToAlerts = {
-                        // Placeholder for MVP
+                        navController.navigate("family_alerts")
                     },
                     onNavigateToMessages = {
-                        // Placeholder for MVP
+                        navController.navigate("family_messages")
                     },
                     onNavigateToReports = {
-                        // Placeholder for MVP
+                        navController.navigate("family_reports")
                     },
                     onAddPatient = {
                         // Placeholder for MVP
+                    },
+                    onSwitchToPatientMode = {
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("family_dashboard") { inclusive = true }
+                        }
+                    }
+                )
+            }
+            
+            // Family App Screens
+            composable("family_alerts") {
+                FamilyAlertsScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("family_dashboard") {
+                            popUpTo("family_alerts") { inclusive = true }
+                        }
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate("family_messages")
+                    },
+                    onNavigateToReports = {
+                        navController.navigate("family_reports")
+                    }
+                )
+            }
+            
+            composable("family_messages") {
+                FamilyMessagesScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("family_dashboard") {
+                            popUpTo("family_messages") { inclusive = true }
+                        }
+                    },
+                    onNavigateToAlerts = {
+                        navController.navigate("family_alerts")
+                    },
+                    onNavigateToReports = {
+                        navController.navigate("family_reports")
+                    }
+                )
+            }
+            
+            composable("family_reports") {
+                FamilyReportsScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("family_dashboard") {
+                            popUpTo("family_reports") { inclusive = true }
+                        }
+                    },
+                    onNavigateToAlerts = {
+                        navController.navigate("family_alerts")
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate("family_messages")
                     }
                 )
             }

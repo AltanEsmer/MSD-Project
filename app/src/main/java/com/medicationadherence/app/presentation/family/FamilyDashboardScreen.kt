@@ -28,7 +28,8 @@ fun FamilyDashboardScreen(
     onNavigateToAlerts: () -> Unit = {},
     onNavigateToMessages: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
-    onAddPatient: () -> Unit = {}
+    onAddPatient: () -> Unit = {},
+    onSwitchToPatientMode: () -> Unit = {}
 ) {
     // Mock data for MVP
     val mockPatients = listOf(
@@ -83,18 +84,33 @@ fun FamilyDashboardScreen(
                             )
                         }
                         
-                        IconButton(
-                            onClick = onAddPatient,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.2f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Patient",
-                                tint = Color.White
-                            )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(
+                                onClick = onSwitchToPatientMode,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SwapHoriz,
+                                    contentDescription = "Switch to Patient Mode",
+                                    tint = Color.White
+                                )
+                            }
+                            IconButton(
+                                onClick = onAddPatient,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add Patient",
+                                    tint = Color.White
+                                )
+                            }
                         }
                     }
                     

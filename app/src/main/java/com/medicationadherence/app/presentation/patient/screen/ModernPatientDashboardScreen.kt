@@ -37,7 +37,8 @@ fun ModernPatientDashboardScreen(
     onNavigateToMedications: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onAddMedication: () -> Unit
+    onAddMedication: () -> Unit,
+    onSwitchToCaregiverMode: () -> Unit = {}
 ) {
     val todayMedications by viewModel.todayMedications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -89,18 +90,33 @@ fun ModernPatientDashboardScreen(
                             )
                         }
                         
-                        IconButton(
-                            onClick = onNavigateToProfile,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.2f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Profile",
-                                tint = Color.White
-                            )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(
+                                onClick = onSwitchToCaregiverMode,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SwapHoriz,
+                                    contentDescription = "Switch to Caregiver Mode",
+                                    tint = Color.White
+                                )
+                            }
+                            IconButton(
+                                onClick = onNavigateToProfile,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Profile",
+                                    tint = Color.White
+                                )
+                            }
                         }
                     }
                     

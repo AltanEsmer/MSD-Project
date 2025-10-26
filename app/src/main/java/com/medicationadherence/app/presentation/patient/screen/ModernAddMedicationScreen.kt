@@ -39,17 +39,34 @@ fun ModernAddMedicationScreen(
     
     var nameError by remember { mutableStateOf(false) }
     var dosageError by remember { mutableStateOf(false) }
+    var showValidationError by remember { mutableStateOf(false) }
     
     val isLoading by viewModel.isLoading.collectAsState()
     val medicationAdded by viewModel.medicationAdded.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     
     val isEdit = medicationId != null
+    val scrollState = rememberScrollState()
     
     // Handle successful save
     LaunchedEffect(medicationAdded) {
         if (medicationAdded) {
             viewModel.clearMedicationAdded()
             onSaved()
+        }
+    }
+    
+    // Scroll to top when validation fails
+    LaunchedEffect(showValidationError) {
+        if (showValidationError) {
+            scrollState.animateScrollTo(0)
+        }
+    }
+    
+    // Show error message
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            android.util.Log.e("AddMedicationScreen", "Error: $errorMessage")
         }
     }
     
@@ -66,6 +83,34 @@ fun ModernAddMedicationScreen(
                     containerColor = Color.White
                 )
             )
+        },
+        snackbarHost = {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (showValidationError) {
+                    Snackbar(
+                        action = {
+                            TextButton(onClick = { showValidationError = false }) {
+                                Text("OK")
+                            }
+                        }
+                    ) {
+                        Text("Please fill in all required fields (marked with *)")
+                    }
+                }
+                if (errorMessage != null) {
+                    Snackbar(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        action = {
+                            TextButton(onClick = { viewModel.clearError() }) {
+                                Text("OK")
+                            }
+                        }
+                    ) {
+                        Text("Error: $errorMessage")
+                    }
+                }
+            }
         }
     ) { paddingValues ->
         Column(
@@ -73,7 +118,7 @@ fun ModernAddMedicationScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(Gray50)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
@@ -332,13 +377,15 @@ fun ModernAddMedicationScreen(
                         nameError = medicationName.isBlank()
                         dosageError = dosage.isBlank()
                         
-                        if (!nameError && !dosageError) {
+                        if (!nameError && !dosageError && times.isNotEmpty()) {
                             viewModel.addMedication(
                                 name = medicationName.trim(),
                                 dosage = dosage.trim(),
                                 frequency = times,
                                 instructions = instructions.trim()
                             )
+                        } else {
+                            showValidationError = true
                         }
                     },
                     modifier = Modifier
