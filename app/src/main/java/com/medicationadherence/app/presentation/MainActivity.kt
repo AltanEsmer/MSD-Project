@@ -6,27 +6,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.medicationadherence.app.data.local.SampleDataSeeder
-import com.medicationadherence.app.presentation.patient.screen.PatientDashboardScreen
-import com.medicationadherence.app.presentation.patient.screen.AddMedicationScreen
-import com.medicationadherence.app.presentation.patient.screen.MedicationDetailsScreen
+import com.medicationadherence.app.presentation.patient.screen.*
+import com.medicationadherence.app.presentation.family.*
 import com.medicationadherence.app.presentation.theme.MedicationAdherenceTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Main Activity for Medication Adherence App
+ * Main Activity for Medication Adherence App - MVP with Modern UI
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -38,34 +34,32 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Seed sample data on first launch
-        seedSampleDataIfFirstLaunch()
-        
-        setContent {
-            MedicationAdherenceTheme {
-                MedicationApp()
-            }
-        }
-    }
-    
-    /**
-     * Seeds sample data on first launch
-     * Uses SharedPreferences to track if data has been seeded
-     */
-    private fun seedSampleDataIfFirstLaunch() {
+        // Check if onboarding is complete
         val prefs = getSharedPreferences("medication_adherence_prefs", Context.MODE_PRIVATE)
-        val isFirstLaunch = prefs.getBoolean("is_first_launch", true)
+        val hasCompletedOnboarding = prefs.getBoolean("onboarding_complete", false)
+        val hasSeededData = prefs.getBoolean("has_seeded_data", false)
         
-        if (isFirstLaunch) {
+        // Seed sample data if not done yet
+        if (!hasSeededData) {
             lifecycleScope.launch {
                 try {
                     sampleDataSeeder.seedSampleData()
-                    // Mark that we've completed first launch
-                    prefs.edit().putBoolean("is_first_launch", false).apply()
+                    prefs.edit().putBoolean("has_seeded_data", true).apply()
                     android.util.Log.d("MainActivity", "Sample data seeded successfully")
                 } catch (e: Exception) {
                     android.util.Log.e("MainActivity", "Error seeding sample data", e)
                 }
+            }
+        }
+        
+        setContent {
+            MedicationAdherenceTheme {
+                MedicationApp(
+                    startDestination = if (hasCompletedOnboarding) "patient_dashboard" else "welcome",
+                    onOnboardingComplete = {
+                        prefs.edit().putBoolean("onboarding_complete", true).apply()
+                    }
+                )
             }
         }
     }
@@ -74,46 +68,195 @@ class MainActivity : ComponentActivity() {
 /**
  * Main app composable with navigation
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MedicationApp() {
+fun MedicationApp(
+    startDestination: String = "welcome",
+    onOnboardingComplete: () -> Unit = {}
+) {
     val navController = rememberNavController()
-
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+    var patientName by remember { mutableStateOf("Patient") }
+    var patientAge by remember { mutableStateOf("") }
+    var healthConditions by remember { mutableStateOf(emptyList<String>()) }
+    var emergencyContact by remember { mutableStateOf("") }
+    
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
         NavHost(
             navController = navController,
-            startDestination = "patient_dashboard",
-            modifier = Modifier.padding(innerPadding)
+            startDestination = startDestination
         ) {
+            // Welcome & Onboarding
+            composable("welcome") {
+                WelcomeScreen(
+                    onGetStarted = {
+                        navController.navigate("profile_setup")
+                    },
+                    onSwitchToFamily = {
+                        navController.navigate("family_welcome")
+                    }
+                )
+            }
+            
+            composable("profile_setup") {
+                ProfileSetupScreen(
+                    onComplete = { name, age, conditions, contact ->
+                        patientName = name
+                        patientAge = age
+                        healthConditions = conditions
+                        emergencyContact = contact
+                        onOnboardingComplete()
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("welcome") { inclusive = true }
+                        }
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
+            // Patient App Screens
             composable("patient_dashboard") {
-                PatientDashboardScreen(
+                ModernPatientDashboardScreen(
+                    patientName = patientName,
+                    onNavigateToMedications = {
+                        navController.navigate("medications_list")
+                    },
+                    onNavigateToHistory = {
+                        navController.navigate("adherence_history")
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate("patient_profile")
+                    },
                     onAddMedication = {
                         navController.navigate("add_medication")
-                    },
-                    onMedicationDetails = { medicationId ->
-                        navController.navigate("medication_details/$medicationId")
                     }
                 )
             }
-
+            
+            composable("medications_list") {
+                MedicationListScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onAddNew = {
+                        navController.navigate("add_medication")
+                    },
+                    onEdit = { medicationId ->
+                        navController.navigate("edit_medication/$medicationId")
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("patient_dashboard") { inclusive = true }
+                        }
+                    },
+                    onNavigateToHistory = {
+                        navController.navigate("adherence_history")
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate("patient_profile")
+                    }
+                )
+            }
+            
             composable("add_medication") {
-                AddMedicationScreen(
-                    onNavigateBack = {
+                ModernAddMedicationScreen(
+                    onCancel = {
+                        navController.popBackStack()
+                    },
+                    onSaved = {
                         navController.popBackStack()
                     }
                 )
             }
-
-            composable("medication_details/{medicationId}") { backStackEntry ->
-                val medicationId = backStackEntry.arguments?.getString("medicationId") ?: ""
-                MedicationDetailsScreen(
+            
+            composable("edit_medication/{medicationId}") { backStackEntry ->
+                val medicationId = backStackEntry.arguments?.getString("medicationId")
+                ModernAddMedicationScreen(
                     medicationId = medicationId,
-                    onNavigateBack = {
+                    onCancel = {
                         navController.popBackStack()
                     },
-                    onEditMedication = { medId ->
-                        // TODO: Navigate to edit medication screen
+                    onSaved = {
                         navController.popBackStack()
+                    }
+                )
+            }
+            
+            composable("adherence_history") {
+                AdherenceHistoryScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("patient_dashboard") { inclusive = true }
+                        }
+                    },
+                    onNavigateToMedications = {
+                        navController.navigate("medications_list")
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate("patient_profile")
+                    }
+                )
+            }
+            
+            composable("patient_profile") {
+                PatientProfileScreen(
+                    patientName = patientName,
+                    patientAge = patientAge,
+                    healthConditions = healthConditions,
+                    emergencyContact = emergencyContact,
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onSwitchToFamily = {
+                        navController.navigate("family_welcome")
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("patient_dashboard") { inclusive = true }
+                        }
+                    },
+                    onNavigateToMedications = {
+                        navController.navigate("medications_list")
+                    },
+                    onNavigateToHistory = {
+                        navController.navigate("adherence_history")
+                    }
+                )
+            }
+            
+            // Family App Screens
+            composable("family_welcome") {
+                FamilyWelcomeScreen(
+                    onGetStarted = {
+                        navController.navigate("family_dashboard")
+                    },
+                    onSwitchToPatient = {
+                        navController.navigate("welcome") {
+                            popUpTo("family_welcome") { inclusive = true }
+                        }
+                    }
+                )
+            }
+            
+            composable("family_dashboard") {
+                FamilyDashboardScreen(
+                    onNavigateToAlerts = {
+                        // Placeholder for MVP
+                    },
+                    onNavigateToMessages = {
+                        // Placeholder for MVP
+                    },
+                    onNavigateToReports = {
+                        // Placeholder for MVP
+                    },
+                    onAddPatient = {
+                        // Placeholder for MVP
                     }
                 )
             }
