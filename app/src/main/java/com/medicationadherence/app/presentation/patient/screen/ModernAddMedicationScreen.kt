@@ -43,7 +43,7 @@ fun ModernAddMedicationScreen(
     
     val isLoading by viewModel.isLoading.collectAsState()
     val medicationAdded by viewModel.medicationAdded.collectAsState()
-    val errorMessage by viewModel.errorMessage.collectAsState()
+     val errorMessage by viewModel.errorMessage.collectAsState()
     
     val isEdit = medicationId != null
     val scrollState = rememberScrollState()

@@ -18,7 +18,19 @@ class DateTimeConverters {
 
     @TypeConverter
     fun toLocalDateTime(value: String?): LocalDateTime? {
-        return value?.let { LocalDateTime.parse(it) }
+        return value?.let { 
+            try {
+                LocalDateTime.parse(it)
+            } catch (e: Exception) {
+                // Handle space-separated datetime format (e.g., "2025-10-26 16:33:56")
+                try {
+                    val normalized = it.replace(" ", "T")
+                    LocalDateTime.parse(normalized)
+                } catch (e2: Exception) {
+                    null
+                }
+            }
+        }
     }
 }
 

@@ -66,7 +66,7 @@ class LocalMedicationDataSource @Inject constructor(
     suspend fun updateScheduleStatus(scheduleId: String, status: AdherenceStatus) {
         val timestamp = if (status == AdherenceStatus.TAKEN) {
             val now = java.time.LocalDateTime.now()
-            "${now.year}-${now.monthValue.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')} ${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}:${now.second.toString().padStart(2, '0')}"
+            "${now.year}-${now.monthValue.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')}T${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}:${now.second.toString().padStart(2, '0')}"
         } else null
         medicationScheduleDao.updateScheduleStatus(scheduleId, status.name, timestamp)
     }
@@ -144,7 +144,7 @@ class LocalMedicationDataSource @Inject constructor(
         val reminder = medicationReminderDao.getReminderForMedication(medicationId)
         if (reminder != null) {
             val now = java.time.LocalDateTime.now()
-            val timestamp = "${now.year}-${now.monthValue.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')} ${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}:${now.second.toString().padStart(2, '0')}"
+            val timestamp = "${now.year}-${now.monthValue.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')}T${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}:${now.second.toString().padStart(2, '0')}"
             medicationReminderDao.updateSnoozeInfo(
                 medicationId,
                 reminder.snoozeCount + 1,
