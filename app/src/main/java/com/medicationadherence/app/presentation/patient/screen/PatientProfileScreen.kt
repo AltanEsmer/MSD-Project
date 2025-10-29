@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.medicationadherence.app.presentation.common.components.*
 import com.medicationadherence.app.presentation.theme.*
+import androidx.compose.material.icons.filled.Logout
 
 /**
  * Patient Profile Screen - Settings and profile management
@@ -29,13 +30,15 @@ fun PatientProfileScreen(
     patientAge: String = "65",
     healthConditions: List<String> = emptyList(),
     emergencyContact: String = "",
+    bloodType: String? = null,
     onBack: () -> Unit,
     onSwitchToFamily: () -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToMedications: () -> Unit,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    onNavigateToEditProfile: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null
 ) {
-    var showEditDialog by remember { mutableStateOf(false) }
     var notifications by remember { mutableStateOf(true) }
     var sound by remember { mutableStateOf(true) }
     var textSize by remember { mutableStateOf(16f) }
@@ -105,7 +108,10 @@ fun PatientProfileScreen(
                             )
                         }
                         
-                        IconButton(onClick = { showEditDialog = true }) {
+                        IconButton(onClick = { 
+                            // Navigate to edit profile screen
+                            onNavigateToEditProfile?.invoke()
+                        }) {
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = "Edit Profile",
@@ -171,6 +177,20 @@ fun PatientProfileScreen(
                                     )
                                     Text(
                                         text = emergencyContact,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                            
+                            if (bloodType != null && bloodType.isNotEmpty()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = "Blood Type",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Gray600
+                                    )
+                                    Text(
+                                        text = bloodType,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -388,6 +408,60 @@ fun PatientProfileScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Gray600
                             )
+                        }
+                    }
+                }
+                
+                // Logout Button
+                item {
+                    if (onLogout != null) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = { onLogout() }),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Red100),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Logout,
+                                        contentDescription = null,
+                                        tint = Red600,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Sign Out",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Red600
+                                    )
+                                    Text(
+                                        text = "Log out of your account",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Gray600
+                                    )
+                                }
+                                Icon(
+                                    Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    tint = Gray400
+                                )
+                            }
                         }
                     }
                 }

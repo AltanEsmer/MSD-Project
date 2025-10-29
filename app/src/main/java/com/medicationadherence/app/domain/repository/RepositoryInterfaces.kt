@@ -47,12 +47,35 @@ interface PatientRepository {
  * Repository interface for authentication
  */
 interface AuthRepository {
-    suspend fun signUp(email: String, password: String, userType: UserType): Result<String>
+    /**
+     * Current authentication state
+     */
+    val authState: Flow<AuthState>
+
+    /**
+     * Sign up a new user with email and password
+     */
+    suspend fun signUp(email: String, password: String): Result<String>
+
+    /**
+     * Sign in with email and password
+     */
     suspend fun signIn(email: String, password: String): Result<String>
-    suspend fun signOut()
+
+    /**
+     * Sign out current user
+     */
+    suspend fun signOut(): Result<Unit>
+
+    /**
+     * Get current user ID
+     */
     suspend fun getCurrentUserId(): String?
+
+    /**
+     * Check if user is authenticated
+     */
     suspend fun isAuthenticated(): Boolean
-    suspend fun linkPatientCaregiver(patientEmail: String, code: String): Result<Unit>
 }
 
 /**

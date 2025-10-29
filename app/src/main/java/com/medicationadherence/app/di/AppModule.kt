@@ -2,10 +2,14 @@ package com.medicationadherence.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.google.firebase.auth.FirebaseAuth
+import com.medicationadherence.app.data.auth.FirebaseAuthDataSource
 import com.medicationadherence.app.data.local.LocalMedicationDataSource
 import com.medicationadherence.app.data.local.database.MedicationDatabase
 import com.medicationadherence.app.data.local.dao.*
+import com.medicationadherence.app.data.repository.AuthRepositoryImpl
 import com.medicationadherence.app.data.repository.MedicationRepositoryImpl
+import com.medicationadherence.app.domain.repository.AuthRepository
 import com.medicationadherence.app.domain.repository.MedicationRepository
 import dagger.Module
 import dagger.Provides
@@ -80,5 +84,27 @@ object AppModule {
         localDataSource: LocalMedicationDataSource
     ): MedicationRepository {
         return MedicationRepositoryImpl(localDataSource)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuthDataSource(
+        firebaseAuth: FirebaseAuth
+    ): FirebaseAuthDataSource {
+        return FirebaseAuthDataSource(firebaseAuth)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthRepository(
+        firebaseAuthDataSource: FirebaseAuthDataSource
+    ): AuthRepository {
+        return AuthRepositoryImpl(firebaseAuthDataSource)
     }
 }

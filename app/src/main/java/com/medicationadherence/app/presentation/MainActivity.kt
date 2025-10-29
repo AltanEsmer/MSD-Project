@@ -9,16 +9,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.medicationadherence.app.data.local.SampleDataSeeder
+import com.medicationadherence.app.domain.repository.AuthRepository
+import com.medicationadherence.app.presentation.auth.LoginScreen
+import com.medicationadherence.app.presentation.auth.SignUpScreen
+import kotlinx.coroutines.launch
 import com.medicationadherence.app.presentation.patient.screen.*
 import com.medicationadherence.app.presentation.family.*
 import com.medicationadherence.app.presentation.theme.MedicationAdherenceTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
@@ -29,6 +34,9 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var sampleDataSeeder: SampleDataSeeder
+    
+    @Inject
+    lateinit var authRepository: AuthRepository
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,14 +60,33 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        setContent {
-            MedicationAdherenceTheme {
-                MedicationApp(
-                    startDestination = if (hasCompletedOnboarding) "patient_dashboard" else "welcome",
-                    onOnboardingComplete = {
-                        prefs.edit().putBoolean("onboarding_complete", true).apply()
-                    }
-                )
+        // Check authentication state
+        lifecycleScope.launch {
+            val isAuthenticated = try {
+                authRepository.authState.first().let {
+                    it is com.medicationadherence.app.domain.model.AuthState.Authenticated
+                }
+            } catch (e: Exception) {
+                false
+            }
+            
+            val startDestination = when {
+                !isAuthenticated -> "login"
+                !hasCompletedOnboarding -> "profile_setup"
+                else -> "patient_dashboard"
+            }
+            
+            setContent {
+                MedicationAdherenceTheme {
+                    MedicationApp(
+                        startDestination = startDestination,
+                        hasCompletedOnboarding = hasCompletedOnboarding,
+                        onOnboardingComplete = {
+                            prefs.edit().putBoolean("onboarding_complete", true).apply()
+                        },
+                        authRepository = authRepository
+                    )
+                }
             }
         }
     }
@@ -71,13 +98,30 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MedicationApp(
     startDestination: String = "welcome",
-    onOnboardingComplete: () -> Unit = {}
+    hasCompletedOnboarding: Boolean = false,
+    onOnboardingComplete: () -> Unit = {},
+    authRepository: AuthRepository? = null
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val navController = rememberNavController()
+    
+    // Handler for logout
+    val scope = rememberCoroutineScope()
+    val handleLogout: () -> Unit = {
+        if (authRepository != null) {
+            scope.launch {
+                authRepository.signOut()
+                navController.navigate("login") {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
     var patientName by remember { mutableStateOf("Patient") }
     var patientAge by remember { mutableStateOf("") }
     var healthConditions by remember { mutableStateOf(emptyList<String>()) }
     var emergencyContact by remember { mutableStateOf("") }
+    var bloodType by remember { mutableStateOf<String?>(null) }
     
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -87,11 +131,49 @@ fun MedicationApp(
             navController = navController,
             startDestination = startDestination
         ) {
+            // Authentication Screens
+            composable("login") {
+                LoginScreen(
+                    onLoginSuccess = {
+                        // Check if onboarding is complete, navigate accordingly
+                        val prefs = context.getSharedPreferences("medication_adherence_prefs", Context.MODE_PRIVATE)
+                        val onboardingComplete = prefs.getBoolean("onboarding_complete", false)
+                        if (onboardingComplete) {
+                            navController.navigate("patient_dashboard") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate("profile_setup") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        }
+                    },
+                    onNavigateToSignUp = {
+                        navController.navigate("signup")
+                    }
+                )
+            }
+            
+            composable("signup") {
+                SignUpScreen(
+                    onSignUpSuccess = {
+                        navController.navigate("profile_setup") {
+                            popUpTo("signup") { inclusive = true }
+                        }
+                    },
+                    onNavigateToLogin = {
+                        navController.navigate("login") {
+                            popUpTo("signup") { inclusive = true }
+                        }
+                    }
+                )
+            }
+            
             // Welcome & Onboarding
             composable("welcome") {
                 WelcomeScreen(
                     onGetStarted = {
-                        navController.navigate("profile_setup")
+                        navController.navigate("login")
                     },
                     onSwitchToFamily = {
                         navController.navigate("family_welcome")
@@ -108,7 +190,7 @@ fun MedicationApp(
                         emergencyContact = contact
                         onOnboardingComplete()
                         navController.navigate("patient_dashboard") {
-                            popUpTo("welcome") { inclusive = true }
+                            popUpTo("profile_setup") { inclusive = true }
                         }
                     },
                     onBack = {
@@ -215,6 +297,7 @@ fun MedicationApp(
                     patientAge = patientAge,
                     healthConditions = healthConditions,
                     emergencyContact = emergencyContact,
+                    bloodType = bloodType,
                     onBack = {
                         navController.popBackStack()
                     },
@@ -231,6 +314,31 @@ fun MedicationApp(
                     },
                     onNavigateToHistory = {
                         navController.navigate("adherence_history")
+                    },
+                    onNavigateToEditProfile = {
+                        navController.navigate("edit_profile")
+                    },
+                    onLogout = handleLogout
+                )
+            }
+            
+            composable("edit_profile") {
+                EditProfileScreen(
+                    initialName = patientName,
+                    initialAge = patientAge,
+                    initialConditions = healthConditions,
+                    initialEmergencyContact = emergencyContact,
+                    initialBloodType = bloodType,
+                    onSave = { name, age, conditions, contact, bt ->
+                        patientName = name
+                        patientAge = age
+                        healthConditions = conditions
+                        emergencyContact = contact
+                        bloodType = bt
+                        navController.popBackStack()
+                    },
+                    onCancel = {
+                        navController.popBackStack()
                     }
                 )
             }

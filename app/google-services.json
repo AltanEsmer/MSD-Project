@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789",
-    "project_id": "medication-adherence-app",
-    "storage_bucket": "medication-adherence-app.appspot.com"
+    "project_number": "769056564391",
+    "project_id": "medication-adherence-app-d2cc2",
+    "storage_bucket": "medication-adherence-app-d2cc2.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789:android:abcdef123456",
+        "mobilesdk_app_id": "1:769056564391:android:6dce24b0144a3124156782",
         "android_client_info": {
           "package_name": "com.medicationadherence.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyKeyForDevelopment123456789"
+          "current_key": "AIzaSyAk9mnnl6y3h4i_qh6sVJZjyYr4OTxPE0w"
         }
       ],
       "services": {
