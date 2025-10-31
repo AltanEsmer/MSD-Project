@@ -1,5 +1,8 @@
 package com.medicationadherence.app.data.repository
 
+import com.google.firebase.auth.FirebaseAuth
+import com.medicationadherence.app.data.firestore.FirestoreAdherenceDataSource
+import com.medicationadherence.app.data.firestore.FirestoreMedicationDataSource
 import com.medicationadherence.app.data.local.LocalMedicationDataSource
 import com.medicationadherence.app.domain.model.*
 import com.medicationadherence.app.domain.repository.MedicationRepository
@@ -19,7 +22,10 @@ import javax.inject.Singleton
  */
 @Singleton
 class MedicationRepositoryImpl @Inject constructor(
-    private val localDataSource: LocalMedicationDataSource
+    private val localDataSource: LocalMedicationDataSource,
+    private val firestoreMedicationDataSource: FirestoreMedicationDataSource,
+    private val firestoreAdherenceDataSource: FirestoreAdherenceDataSource,
+    private val firebaseAuth: FirebaseAuth
 ) : MedicationRepository {
 
     override fun getAllMedications(): Flow<List<Medication>> {
@@ -31,15 +37,49 @@ class MedicationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertMedication(medication: Medication): String {
-        return localDataSource.insertMedication(medication)
+        val id = localDataSource.insertMedication(medication)
+        
+        // Sync to Firestore in background (don't block on it)
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId != null) {
+            try {
+                val updatedMedication = medication.copy(id = id)
+                firestoreMedicationDataSource.saveMedication(userId, updatedMedication)
+            } catch (e: Exception) {
+                // Log error but don't throw - local save succeeded
+                println("Failed to sync medication to Firestore: ${e.message}")
+            }
+        }
+        
+        return id
     }
 
     override suspend fun updateMedication(medication: Medication) {
         localDataSource.updateMedication(medication)
+        
+        // Sync to Firestore
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId != null) {
+            try {
+                firestoreMedicationDataSource.saveMedication(userId, medication)
+            } catch (e: Exception) {
+                println("Failed to sync medication update to Firestore: ${e.message}")
+            }
+        }
     }
 
     override suspend fun deleteMedication(id: String) {
         localDataSource.deleteMedication(id)
+        
+        // Sync to Firestore
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId != null) {
+            try {
+                firestoreMedicationDataSource.deleteMedication(userId, id)
+            } catch (e: Exception) {
+                println("Failed to sync medication deletion to Firestore: ${e.message}")
+            }
+        }
     }
 
     override fun getTodayMedications(): Flow<List<MedicationWithSchedule>> {
@@ -80,6 +120,29 @@ class MedicationRepositoryImpl @Inject constructor(
 
     override suspend fun logDose(medicationId: String, status: AdherenceStatus, notes: String?) {
         localDataSource.logDose(medicationId, status, notes)
+        
+        // Sync to Firestore
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId != null) {
+            try {
+                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                val today = now.date
+                val timestamp = now
+                
+                val record = AdherenceRecord(
+                    id = java.util.UUID.randomUUID().toString(),
+                    medicationId = medicationId,
+                    date = today,
+                    status = status,
+                    timestamp = timestamp,
+                    notes = notes
+                )
+                
+                firestoreAdherenceDataSource.saveAdherenceRecord(userId, record)
+            } catch (e: Exception) {
+                println("Failed to sync adherence record to Firestore: ${e.message}")
+            }
+        }
     }
 
     override suspend fun getAdherenceHistory(
@@ -100,13 +163,67 @@ class MedicationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncMedications() {
-        // TODO: Implement Firebase sync
-        // This will be implemented when we add Firebase integration
+        val userId = firebaseAuth.currentUser?.uid ?: return
+        
+        try {
+            // Fetch from Firestore
+            val firestoreMedications = firestoreMedicationDataSource.syncAllMedications(userId)
+            
+            // Save to local database
+            firestoreMedications.forEach { medication ->
+                try {
+                    localDataSource.insertMedication(medication)
+                } catch (e: Exception) {
+                    println("Failed to save medication to local DB: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            println("Failed to sync medications from Firestore: ${e.message}")
+        }
     }
 
     override suspend fun syncAdherenceRecords() {
-        // TODO: Implement Firebase sync
-        // This will be implemented when we add Firebase integration
+        val userId = firebaseAuth.currentUser?.uid ?: return
+        
+        try {
+            // Get all local medications
+            val medications = localDataSource.getAllMedications().let { flow ->
+                runBlocking {
+                    var result: List<Medication> = emptyList()
+                    flow.collect { result = it }
+                    result
+                }
+            }
+            
+            // For each medication, get adherence records from local DB and sync to Firestore
+            medications.forEach { medication ->
+                val startDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+                    .let { date ->
+                        val javaDate = java.time.LocalDate.of(date.year, date.monthNumber, date.dayOfMonth)
+                            .minusDays(30)
+                        LocalDate(javaDate.year, javaDate.monthValue, javaDate.dayOfMonth)
+                    }
+                val endDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+                
+                val records = localDataSource.getAdherenceHistory(
+                    medication.id,
+                    startDate,
+                    endDate
+                ).let { flow ->
+                    runBlocking {
+                        var result: List<AdherenceRecord> = emptyList()
+                        flow.collect { result = it }
+                        result
+                    }
+                }
+                
+                if (records.isNotEmpty()) {
+                    firestoreAdherenceDataSource.saveAdherenceRecords(userId, records)
+                }
+            }
+        } catch (e: Exception) {
+            println("Failed to sync adherence records to Firestore: ${e.message}")
+        }
     }
 
     private suspend fun calculateAdherenceRate(medicationId: String, date: LocalDate): Float {

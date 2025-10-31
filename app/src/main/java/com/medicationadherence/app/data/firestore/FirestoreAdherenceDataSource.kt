@@ -1,0 +1,104 @@
+package com.medicationadherence.app.data.firestore
+
+import com.google.firebase.firestore.FirebaseFirestore
+import com.medicationadherence.app.data.firestore.mapper.toAdherenceRecord
+import com.medicationadherence.app.data.firestore.mapper.toFirestoreMap
+import com.medicationadherence.app.domain.model.AdherenceRecord
+import kotlinx.coroutines.tasks.await
+import kotlinx.datetime.LocalDate
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Firestore data source for adherence record management
+ */
+@Singleton
+class FirestoreAdherenceDataSource @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
+    companion object {
+        private const val COLLECTION_ADHERENCE = "adherence_records"
+        private const val FIELD_USER_ID = "userId"
+        private const val FIELD_MEDICATION_ID = "medicationId"
+        private const val FIELD_DATE = "date"
+    }
+
+    /**
+     * Get adherence records for a medication within a date range
+     */
+    suspend fun getAdherenceRecords(
+        userId: String,
+        medicationId: String,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): List<AdherenceRecord> {
+        return try {
+            val snapshot = firestore.collection(COLLECTION_ADHERENCE)
+                .whereEqualTo(FIELD_USER_ID, userId)
+                .whereEqualTo(FIELD_MEDICATION_ID, medicationId)
+                .whereGreaterThanOrEqualTo(FIELD_DATE, startDate.toString())
+                .whereLessThanOrEqualTo(FIELD_DATE, endDate.toString())
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                doc.data?.toAdherenceRecord()
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch adherence records: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Save adherence record
+     */
+    suspend fun saveAdherenceRecord(userId: String, record: AdherenceRecord): Result<Unit> {
+        return try {
+            val data = record.toFirestoreMap().toMutableMap()
+            data[FIELD_USER_ID] = userId
+
+            firestore.collection(COLLECTION_ADHERENCE)
+                .document(record.id)
+                .set(data)
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to save adherence record: ${e.message}", e))
+        }
+    }
+
+    /**
+     * Batch save multiple adherence records
+     */
+    suspend fun saveAdherenceRecords(userId: String, records: List<AdherenceRecord>): Result<Unit> {
+        return try {
+            val batch = firestore.batch()
+            records.forEach { record ->
+                val data = record.toFirestoreMap().toMutableMap()
+                data[FIELD_USER_ID] = userId
+                val ref = firestore.collection(COLLECTION_ADHERENCE).document(record.id)
+                batch.set(ref, data)
+            }
+            batch.commit().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to save adherence records: ${e.message}", e))
+        }
+    }
+
+    /**
+     * Delete adherence record
+     */
+    suspend fun deleteAdherenceRecord(userId: String, recordId: String): Result<Unit> {
+        return try {
+            firestore.collection(COLLECTION_ADHERENCE)
+                .document(recordId)
+                .delete()
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to delete adherence record: ${e.message}", e))
+        }
+    }
+}
+

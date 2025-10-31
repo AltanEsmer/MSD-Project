@@ -12,8 +12,8 @@ interface PatientDao {
     @Query("SELECT * FROM patients WHERE id = :id")
     suspend fun getPatientById(id: String): PatientEntity?
 
-    @Query("SELECT * FROM patients LIMIT 1")
-    fun getCurrentPatient(): Flow<PatientEntity?>
+    @Query("SELECT * FROM patients WHERE id = :userId")
+    fun getCurrentPatient(userId: String): Flow<PatientEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPatient(patient: PatientEntity)

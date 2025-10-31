@@ -19,6 +19,7 @@ data class PatientEntity(
     val age: Int,
     val conditions: List<String>,
     val emergencyContact: String,
+    val bloodType: String? = null,
     val shareDataEnabled: Boolean = true,
     val createdAt: LocalDateTime? = null,
     val updatedAt: LocalDateTime? = null

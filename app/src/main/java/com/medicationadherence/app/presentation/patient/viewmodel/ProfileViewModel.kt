@@ -2,17 +2,26 @@ package com.medicationadherence.app.presentation.patient.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.medicationadherence.app.domain.model.Patient
+import com.medicationadherence.app.domain.repository.PatientRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
  * ViewModel for profile management
  */
-class ProfileViewModel @Inject constructor() : ViewModel() {
+@HiltViewModel
+class ProfileViewModel @Inject constructor(
+    private val patientRepository: PatientRepository,
+    private val firebaseAuth: FirebaseAuth
+) : ViewModel() {
 
     private val _profile = MutableStateFlow<Patient?>(null)
     val profile: StateFlow<Patient?> = _profile.asStateFlow()
@@ -27,15 +36,22 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
     val updateSuccess: StateFlow<Boolean> = _updateSuccess.asStateFlow()
 
     /**
-     * Load profile from SharedPreferences
+     * Load profile from Firestore/Room
      */
     fun loadProfile() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // TODO: Load from Firestore in the future
-                // For now, we'll use the profile data passed from navigation
-                _isLoading.value = false
+                // Try to sync from Firestore first
+                patientRepository.syncPatientProfile()
+                
+                // Observe patient data from repository
+                patientRepository.getCurrentPatient()
+                    .onEach { patient ->
+                        _profile.value = patient
+                        _isLoading.value = false
+                    }
+                    .launchIn(viewModelScope)
             } catch (e: Exception) {
                 _errorMessage.value = e.message
                 _isLoading.value = false
@@ -58,6 +74,7 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
             _errorMessage.value = null
             try {
                 val currentProfile = _profile.value
+                val userEmail = firebaseAuth.currentUser?.email ?: currentProfile?.email ?: ""
                 val updatedProfile = currentProfile?.copy(
                     name = name,
                     age = age.toIntOrNull() ?: currentProfile.age,
@@ -66,19 +83,26 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
                     bloodType = bloodType
                 ) ?: Patient(
                     name = name,
-                    email = "",
+                    email = userEmail,
                     age = age.toIntOrNull() ?: 0,
                     conditions = conditions,
                     emergencyContact = emergencyContact,
                     bloodType = bloodType
                 )
 
-                _profile.value = updatedProfile
+                // Save to Firestore and Room
+                if (updatedProfile.id.isEmpty()) {
+                    // Create new profile
+                    val id = patientRepository.createPatient(updatedProfile)
+                    _profile.value = updatedProfile.copy(id = id)
+                } else {
+                    // Update existing profile
+                    patientRepository.updatePatient(updatedProfile)
+                    _profile.value = updatedProfile
+                }
+
                 _updateSuccess.value = true
                 _isLoading.value = false
-
-                // TODO: Save to Firestore in the future
-                // For now, save to SharedPreferences or keep in memory
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Failed to update profile"
                 _isLoading.value = false

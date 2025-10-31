@@ -232,27 +232,113 @@ buildscript {
 When you're ready to use Firestore, update security rules:
 
 1. **Firebase Console → Firestore Database → Rules**
-2. **Replace with authenticated-only rules:**
+2. **Replace with the following complete security rules:**
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own profile
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // Medications - users can only access their own
+    // Helper function to check if the userId matches the authenticated user
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Patients Collection: /patients/{userId}
+    // Users can only read/write their own profile
+    // Document ID is the user's Firebase Auth UID
+    match /patients/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isAuthenticated() && request.auth.uid == userId && 
+                       request.resource.data.id == userId;
+      allow update: if isOwner(userId) && 
+                       resource.data.id == userId;
+      allow delete: if isOwner(userId);
+    }
+    
+    // Medications Collection: /medications/{medicationId}
+    // Medications are stored in a flat collection with userId field
+    // Users can only access medications where userId matches their auth.uid
     match /medications/{medicationId} {
-      allow read, write: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
+      // Allow read if the medication belongs to the authenticated user
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      request.resource.data.userId == request.auth.uid);
+      
+      // Allow create if userId field matches authenticated user
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Allow update if the existing medication belongs to the user
+      // AND the userId field is not being changed
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid &&
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Allow delete (soft delete via isActive flag) if medication belongs to user
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+    }
+    
+    // Adherence Records Collection: /adherence_records/{recordId}
+    // Adherence records are stored with userId and medicationId fields
+    // Users can only access records where userId matches their auth.uid
+    match /adherence_records/{recordId} {
+      // Allow read if the record belongs to the authenticated user
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      request.resource.data.userId == request.auth.uid);
+      
+      // Allow create if userId field matches authenticated user
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Allow update if the existing record belongs to the user
+      // AND the userId field is not being changed
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid &&
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Allow delete if record belongs to user
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
 ```
 
-3. **Click "Publish"**
+### Important Notes:
+
+1. **Collection Structure**:
+   - **Patients**: `/patients/{userId}` - Document ID is the user's Firebase Auth UID
+   - **Medications**: `/medications/{medicationId}` - Flat collection with `userId` field inside documents
+   - **Adherence Records**: `/adherence_records/{recordId}` - Flat collection with `userId` and `medicationId` fields
+
+2. **Security Principles**:
+   - All operations require authentication (`isAuthenticated()`)
+   - Users can only access their own data (userId must match auth.uid)
+   - On create/update, the userId field cannot be changed to prevent unauthorized access
+   - Default deny rule at the end ensures no unexpected access
+
+3. **Testing the Rules**:
+   - Use Firebase Console → Firestore Database → Rules → Rules Playground
+   - Test scenarios:
+     - User reading their own patient profile ✅
+     - User trying to read another user's patient profile ❌
+     - User creating a medication with their userId ✅
+     - User creating a medication with another user's userId ❌
+
+4. **Click "Publish"** after updating the rules
 
 ## Step 10: Firebase Free Tier Limits Recap
 

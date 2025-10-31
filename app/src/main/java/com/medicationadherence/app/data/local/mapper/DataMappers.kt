@@ -19,6 +19,7 @@ fun Patient.toEntity(): PatientEntity {
         age = age,
         conditions = conditions,
         emergencyContact = emergencyContact,
+        bloodType = bloodType,
         shareDataEnabled = shareDataEnabled,
         createdAt = createdAt,
         updatedAt = updatedAt
@@ -33,6 +34,7 @@ fun PatientEntity.toDomain(): Patient {
         age = age,
         conditions = conditions,
         emergencyContact = emergencyContact,
+        bloodType = bloodType,
         shareDataEnabled = shareDataEnabled,
         createdAt = createdAt,
         updatedAt = updatedAt
