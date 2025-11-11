@@ -8,12 +8,14 @@ import com.medicationadherence.app.data.auth.FirebaseAuthDataSource
 import com.medicationadherence.app.data.firestore.FirestoreAdherenceDataSource
 import com.medicationadherence.app.data.firestore.FirestoreMedicationDataSource
 import com.medicationadherence.app.data.firestore.FirestorePatientDataSource
+import com.medicationadherence.app.data.firestore.FirestoreTokenDataSource
 import com.medicationadherence.app.data.local.LocalMedicationDataSource
 import com.medicationadherence.app.data.local.database.MedicationDatabase
 import com.medicationadherence.app.data.local.dao.*
 import com.medicationadherence.app.data.repository.AuthRepositoryImpl
 import com.medicationadherence.app.data.repository.MedicationRepositoryImpl
 import com.medicationadherence.app.data.repository.PatientRepositoryImpl
+import com.medicationadherence.app.data.work.MedicationReminderManager
 import com.medicationadherence.app.domain.repository.AuthRepository
 import com.medicationadherence.app.domain.repository.MedicationRepository
 import com.medicationadherence.app.domain.repository.PatientRepository
@@ -86,17 +88,28 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideMedicationReminderManager(
+        @ApplicationContext context: Context,
+        localDataSource: LocalMedicationDataSource
+    ): MedicationReminderManager {
+        return MedicationReminderManager(context, localDataSource)
+    }
+
+    @Provides
+    @Singleton
     fun provideMedicationRepository(
         localDataSource: LocalMedicationDataSource,
         firestoreMedicationDataSource: FirestoreMedicationDataSource,
         firestoreAdherenceDataSource: FirestoreAdherenceDataSource,
-        firebaseAuth: FirebaseAuth
+        firebaseAuth: FirebaseAuth,
+        reminderManager: MedicationReminderManager
     ): MedicationRepository {
         return MedicationRepositoryImpl(
             localDataSource = localDataSource,
             firestoreMedicationDataSource = firestoreMedicationDataSource,
             firestoreAdherenceDataSource = firestoreAdherenceDataSource,
-            firebaseAuth = firebaseAuth
+            firebaseAuth = firebaseAuth,
+            reminderManager = reminderManager
         )
     }
 
@@ -134,6 +147,14 @@ object AppModule {
         firestore: FirebaseFirestore
     ): FirestoreAdherenceDataSource {
         return FirestoreAdherenceDataSource(firestore)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirestoreTokenDataSource(
+        firestore: FirebaseFirestore
+    ): FirestoreTokenDataSource {
+        return FirestoreTokenDataSource(firestore)
     }
 
     @Provides

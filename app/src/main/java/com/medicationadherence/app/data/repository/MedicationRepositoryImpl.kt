@@ -4,9 +4,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.medicationadherence.app.data.firestore.FirestoreAdherenceDataSource
 import com.medicationadherence.app.data.firestore.FirestoreMedicationDataSource
 import com.medicationadherence.app.data.local.LocalMedicationDataSource
+import com.medicationadherence.app.data.work.MedicationReminderManager
 import com.medicationadherence.app.domain.model.*
 import com.medicationadherence.app.domain.repository.MedicationRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -25,7 +27,8 @@ class MedicationRepositoryImpl @Inject constructor(
     private val localDataSource: LocalMedicationDataSource,
     private val firestoreMedicationDataSource: FirestoreMedicationDataSource,
     private val firestoreAdherenceDataSource: FirestoreAdherenceDataSource,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val reminderManager: MedicationReminderManager
 ) : MedicationRepository {
 
     override fun getAllMedications(): Flow<List<Medication>> {
@@ -38,6 +41,10 @@ class MedicationRepositoryImpl @Inject constructor(
 
     override suspend fun insertMedication(medication: Medication): String {
         val id = localDataSource.insertMedication(medication)
+        
+        // Schedule reminders for the new medication
+        val medicationWithId = medication.copy(id = id)
+        reminderManager.scheduleReminder(id)
         
         // Sync to Firestore in background (don't block on it)
         val userId = firebaseAuth.currentUser?.uid
@@ -70,6 +77,9 @@ class MedicationRepositoryImpl @Inject constructor(
 
     override suspend fun deleteMedication(id: String) {
         localDataSource.deleteMedication(id)
+        
+        // Cancel reminders for deleted medication
+        reminderManager.cancelReminder(id)
         
         // Sync to Firestore
         val userId = firebaseAuth.currentUser?.uid
@@ -116,6 +126,22 @@ class MedicationRepositoryImpl @Inject constructor(
 
     override suspend fun updateScheduleStatus(scheduleId: String, status: AdherenceStatus) {
         localDataSource.updateScheduleStatus(scheduleId, status)
+        
+        // If medication is marked as taken, auto-reschedule next reminder
+        if (status == AdherenceStatus.TAKEN) {
+            // Find the schedule to get medication ID and scheduled time
+            val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+            val schedules = localDataSource.getMedicationSchedules(today).first()
+            val schedule = schedules.firstOrNull { it.id == scheduleId }
+            
+            if (schedule != null) {
+                val medication = localDataSource.getMedicationById(schedule.medicationId)
+                if (medication != null) {
+                    // Auto-reschedule next reminder
+                    reminderManager.scheduleNextReminder(medication, schedule.scheduledTime)
+                }
+            }
+        }
     }
 
     override suspend fun logDose(medicationId: String, status: AdherenceStatus, notes: String?) {

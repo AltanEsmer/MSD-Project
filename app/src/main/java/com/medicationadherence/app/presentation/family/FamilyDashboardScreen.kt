@@ -10,12 +10,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import android.widget.Toast
 import com.medicationadherence.app.presentation.common.components.*
 import com.medicationadherence.app.presentation.theme.*
 
@@ -25,31 +31,51 @@ import com.medicationadherence.app.presentation.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FamilyDashboardScreen(
+    viewModel: FamilyDashboardViewModel = hiltViewModel(),
     onNavigateToAlerts: () -> Unit = {},
     onNavigateToMessages: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onAddPatient: () -> Unit = {},
     onSwitchToPatientMode: () -> Unit = {}
 ) {
-    // Mock data for MVP
-    val mockPatients = listOf(
-        MockPatient(
-            name = "John Smith",
-            age = "72",
-            condition = "Diabetes",
-            adherenceRate = 92,
-            todayTaken = 5,
-            todayTotal = 6,
-            missedDoses = 1,
-            status = "attention"
-        )
-    )
+    val patients by viewModel.patients.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val context = LocalContext.current
+
+    // Show error toast if there's an error
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Show loading state
+    if (isLoading && patients.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Purple600)
+        }
+        return
+    }
+
+    val avgAdherence = viewModel.getAverageAdherence()
+    val activeAlerts = viewModel.getActiveAlertsCount()
     
-    val recentActivity = listOf(
-        Activity("John Smith", "Took morning medication", "8:30 AM", "success"),
-        Activity("John Smith", "Missed afternoon dose", "2:00 PM", "warning"),
-        Activity("John Smith", "Took evening medication", "6:45 PM", "success")
-    )
+    val recentActivity = if (patients.isNotEmpty()) {
+        listOf(
+            Activity(
+                patient = patients.firstOrNull()?.patient?.name ?: "Patient",
+                action = "Took morning medication",
+                time = "8:30 AM",
+                type = "success"
+            )
+        )
+    } else {
+        emptyList()
+    }
     
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -78,7 +104,7 @@ fun FamilyDashboardScreen(
                                 color = Color.White
                             )
                             Text(
-                                text = "Monitoring ${mockPatients.size} ${if (mockPatients.size == 1) "patient" else "patients"}",
+                                text = "Monitoring ${patients.size} ${if (patients.size == 1) "patient" else "patients"}",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = Purple100
                             )
@@ -135,7 +161,7 @@ fun FamilyDashboardScreen(
                                     color = Purple100
                                 )
                                 Text(
-                                    text = "2",
+                                    text = "$activeAlerts",
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -157,7 +183,7 @@ fun FamilyDashboardScreen(
                                     color = Purple100
                                 )
                                 Text(
-                                    text = "92%",
+                                    text = "$avgAdherence%",
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -201,7 +227,7 @@ fun FamilyDashboardScreen(
                 }
                 
                 // Patient Cards
-                if (mockPatients.isEmpty()) {
+                if (patients.isEmpty()) {
                     item {
                         EmptyState(
                             icon = Icons.Default.Person,
@@ -212,13 +238,13 @@ fun FamilyDashboardScreen(
                         )
                     }
                 } else {
-                    items(mockPatients) { patient ->
-                        PatientCard(patient = patient)
+                    items(patients) { patientWithStats ->
+                        PatientCard(patientWithStats = patientWithStats)
                     }
                 }
                 
                 // Recent Activity
-                if (mockPatients.isNotEmpty()) {
+                if (patients.isNotEmpty()) {
                     item {
                         Text(
                             text = "Recent Activity",
@@ -255,7 +281,7 @@ fun FamilyDashboardScreen(
                                 iconBackground = Red100,
                                 iconTint = Red600,
                                 title = "Alerts",
-                                subtitle = "2 new alerts",
+                                subtitle = "$activeAlerts new alerts",
                                 onClick = onNavigateToAlerts,
                                 modifier = Modifier.weight(1f)
                             )
@@ -304,7 +330,8 @@ fun FamilyDashboardScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PatientCard(patient: MockPatient) {
+private fun PatientCard(patientWithStats: FamilyDashboardViewModel.PatientWithStats) {
+    val patient = patientWithStats.patient
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -344,16 +371,16 @@ private fun PatientCard(patient: MockPatient) {
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "${patient.age} years • ${patient.condition}",
+                            text = "${patient.age} years • ${patient.conditions.firstOrNull() ?: "No conditions"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = Gray600
                         )
                     }
                     Badge(
-                        containerColor = if (patient.status == "good") Green600 else Orange600
+                        containerColor = if (patientWithStats.status == "good") Green600 else Orange600
                     ) {
                         Text(
-                            text = if (patient.status == "good") "✓ Good" else "! Attention",
+                            text = if (patientWithStats.status == "good") "✓ Good" else "! Attention",
                             color = Color.White
                         )
                     }
@@ -372,13 +399,13 @@ private fun PatientCard(patient: MockPatient) {
                             color = Gray600
                         )
                         Text(
-                            text = "${patient.todayTaken}/${patient.todayTotal}",
+                            text = "${patientWithStats.todayTaken}/${patientWithStats.todayTotal}",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
                     LinearProgressIndicator(
-                        progress = patient.todayTaken.toFloat() / patient.todayTotal,
+                        progress = patientWithStats.todayTaken.toFloat() / patientWithStats.todayTotal,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(8.dp)
@@ -388,7 +415,7 @@ private fun PatientCard(patient: MockPatient) {
                     )
                 }
                 
-                if (patient.missedDoses > 0) {
+                if (patientWithStats.missedDoses > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
@@ -406,7 +433,7 @@ private fun PatientCard(patient: MockPatient) {
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "${patient.missedDoses} dose(s) missed today",
+                            text = "${patientWithStats.missedDoses} dose(s) missed today",
                             style = MaterialTheme.typography.bodySmall,
                             color = Orange600
                         )
@@ -545,18 +572,6 @@ private fun QuickActionCard(
         }
     }
 }
-
-// Mock data classes
-data class MockPatient(
-    val name: String,
-    val age: String,
-    val condition: String,
-    val adherenceRate: Int,
-    val todayTaken: Int,
-    val todayTotal: Int,
-    val missedDoses: Int,
-    val status: String
-)
 
 data class Activity(
     val patient: String,

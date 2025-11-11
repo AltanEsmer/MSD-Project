@@ -35,7 +35,7 @@
             </intent-filter>
         </activity>
 
-        <!-- WorkManager initialization -->
+        <!-- WorkManager initialization - Disabled to use custom Configuration.Provider -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -43,8 +43,29 @@
             tools:node="merge">
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup" />
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
+
+        <!-- Firebase Cloud Messaging Service -->
+        <service
+            android:name=".data.firebase.MedicationMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Notification Action Receiver -->
+        <receiver
+            android:name=".data.notification.NotificationActionReceiver"
+            android:exported="false"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="com.medicationadherence.app.ACTION_MARK_TAKEN" />
+                <action android:name="com.medicationadherence.app.ACTION_SNOOZE" />
+            </intent-filter>
+        </receiver>
 
     </application>
 
