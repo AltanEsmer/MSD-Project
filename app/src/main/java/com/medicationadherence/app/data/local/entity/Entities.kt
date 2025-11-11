@@ -36,6 +36,7 @@ data class MedicationEntity(
     val dosage: String,
     val frequency: List<String>, // JSON array of times
     val instructions: String,
+    val importance: String = "medium",
     val isActive: Boolean = true,
     val createdAt: LocalDateTime? = null,
     val updatedAt: LocalDateTime? = null

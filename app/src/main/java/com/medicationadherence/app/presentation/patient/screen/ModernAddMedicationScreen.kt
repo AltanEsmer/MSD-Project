@@ -29,6 +29,23 @@ fun ModernAddMedicationScreen(
     onCancel: () -> Unit,
     onSaved: () -> Unit
 ) {
+    val isLoading by viewModel.isLoading.collectAsState()
+    val medicationAdded by viewModel.medicationAdded.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val medicationToEdit by viewModel.medicationToEdit.collectAsState()
+    
+    val isEdit = medicationId != null
+    val scrollState = rememberScrollState()
+    
+    // Load medication data if editing
+    LaunchedEffect(medicationId) {
+        if (medicationId != null) {
+            android.util.Log.d("ModernAddMedicationScreen", "Loading medication for edit: $medicationId")
+            viewModel.loadMedicationForEdit(medicationId)
+        }
+    }
+    
+    // Initialize state from medicationToEdit or defaults
     var medicationName by remember { mutableStateOf("") }
     var dosage by remember { mutableStateOf("") }
     var frequency by remember { mutableStateOf("Once daily") }
@@ -41,12 +58,24 @@ fun ModernAddMedicationScreen(
     var dosageError by remember { mutableStateOf(false) }
     var showValidationError by remember { mutableStateOf(false) }
     
-    val isLoading by viewModel.isLoading.collectAsState()
-    val medicationAdded by viewModel.medicationAdded.collectAsState()
-     val errorMessage by viewModel.errorMessage.collectAsState()
+    // Populate fields when medication data loads
+    LaunchedEffect(medicationToEdit) {
+        medicationToEdit?.let { med ->
+            android.util.Log.d("ModernAddMedicationScreen", "Populating fields with: name=${med.name}, dosage=${med.dosage}, importance=${med.importance}")
+            medicationName = med.name
+            dosage = med.dosage
+            times = med.frequency
+            instructions = med.instructions
+            importance = med.importance
+        }
+    }
     
-    val isEdit = medicationId != null
-    val scrollState = rememberScrollState()
+    // Clean up on dispose
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearMedicationToEdit()
+        }
+    }
     
     // Handle successful save
     LaunchedEffect(medicationAdded) {
@@ -378,12 +407,26 @@ fun ModernAddMedicationScreen(
                         dosageError = dosage.isBlank()
                         
                         if (!nameError && !dosageError && times.isNotEmpty()) {
-                            viewModel.addMedication(
-                                name = medicationName.trim(),
-                                dosage = dosage.trim(),
-                                frequency = times,
-                                instructions = instructions.trim()
-                            )
+                            if (isEdit && medicationToEdit != null) {
+                                // Update existing medication
+                                val updatedMedication = medicationToEdit!!.copy(
+                                    name = medicationName.trim(),
+                                    dosage = dosage.trim(),
+                                    frequency = times,
+                                    instructions = instructions.trim(),
+                                    importance = importance
+                                )
+                                viewModel.updateMedication(updatedMedication)
+                            } else {
+                                // Add new medication
+                                viewModel.addMedication(
+                                    name = medicationName.trim(),
+                                    dosage = dosage.trim(),
+                                    frequency = times,
+                                    instructions = instructions.trim(),
+                                    importance = importance
+                                )
+                            }
                         } else {
                             showValidationError = true
                         }

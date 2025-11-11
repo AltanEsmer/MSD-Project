@@ -234,6 +234,7 @@ fun ModernPatientDashboardScreen(
                                 icon = Icons.Default.Medication,
                                 isTaken = schedule.status == AdherenceStatus.TAKEN,
                                 isPast = isPast,
+                                importance = medicationWithSchedule.medication.importance,
                                 onTakeClick = {
                                     viewModel.takeMedication(
                                         schedule.id,

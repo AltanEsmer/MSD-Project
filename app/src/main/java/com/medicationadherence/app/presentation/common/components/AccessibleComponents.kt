@@ -254,23 +254,70 @@ fun MedicationCardItem(
         .filter { it.status == com.medicationadherence.app.domain.model.AdherenceStatus.PENDING }
         .minByOrNull { it.scheduledTime }
 
+    // Get importance color and indicator
+    val (importanceColor, importanceIcon, importanceLabel) = when (medication.importance) {
+        "high" -> Triple(Color(0xFFEF5350), "🔴", "High Priority")
+        "low" -> Triple(Color(0xFF66BB6A), "🟢", "Low Priority")
+        else -> Triple(Color(0xFFFFA726), "🟡", "Medium Priority")
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
-        onClick = onDetailsClick
+        onClick = onDetailsClick,
+        colors = CardDefaults.cardColors(
+            containerColor = when (medication.importance) {
+                "high" -> Color(0xFFFFEBEE)
+                "low" -> Color(0xFFF1F8E9)
+                else -> MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = medication.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Dosage: ${medication.dosage}",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = medication.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Dosage: ${medication.dosage}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                
+                // Importance badge
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = importanceColor.copy(alpha = 0.15f)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = importanceIcon,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = medication.importance.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = importanceColor
+                        )
+                    }
+                }
+            }
 
             nextSchedule?.let { schedule ->
                 Spacer(modifier = Modifier.height(8.dp))

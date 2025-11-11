@@ -31,6 +31,7 @@ fun AddMedicationScreen(
     var dosage by remember { mutableStateOf("") }
     var instructions by remember { mutableStateOf("") }
     var selectedTimes by remember { mutableStateOf(setOf<String>()) }
+    var importance by remember { mutableStateOf("medium") }
     
     // Error states for validation
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -95,7 +96,8 @@ fun AddMedicationScreen(
                                     name = medicationName.trim(),
                                     dosage = dosage.trim(),
                                     frequency = selectedTimes.toList().sorted(),
-                                    instructions = instructions.trim()
+                                    instructions = instructions.trim(),
+                                    importance = importance
                                 )
                             }
                         },

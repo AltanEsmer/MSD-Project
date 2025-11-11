@@ -21,7 +21,7 @@ import com.medicationadherence.app.data.local.entity.*
         AdherenceRecordEntity::class,
         MedicationReminderEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(DateTimeConverters::class, ListConverters::class)

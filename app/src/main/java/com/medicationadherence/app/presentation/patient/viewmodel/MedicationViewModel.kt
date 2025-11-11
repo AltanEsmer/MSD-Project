@@ -35,6 +35,9 @@ class MedicationViewModel @Inject constructor(
     private val _medicationAdded = MutableStateFlow(false)
     val medicationAdded: StateFlow<Boolean> = _medicationAdded.asStateFlow()
 
+    private val _medicationToEdit = MutableStateFlow<Medication?>(null)
+    val medicationToEdit: StateFlow<Medication?> = _medicationToEdit.asStateFlow()
+
     private val _adherenceHistory = MutableStateFlow<List<AdherenceRecord>>(emptyList())
     val adherenceHistory: StateFlow<List<AdherenceRecord>> = _adherenceHistory.asStateFlow()
 
@@ -81,18 +84,20 @@ class MedicationViewModel @Inject constructor(
         name: String,
         dosage: String,
         frequency: List<String>,
-        instructions: String
+        instructions: String,
+        importance: String = "medium"
     ) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                android.util.Log.d("MedicationViewModel", "Adding medication: name=$name, dosage=$dosage, frequency=$frequency")
+                android.util.Log.d("MedicationViewModel", "Adding medication: name=$name, dosage=$dosage, frequency=$frequency, importance=$importance")
                 
                 val medication = Medication(
                     name = name,
                     dosage = dosage,
                     frequency = frequency,
-                    instructions = instructions
+                    instructions = instructions,
+                    importance = importance
                 )
                 
                 val medicationId = medicationRepository.insertMedication(medication)
@@ -119,7 +124,11 @@ class MedicationViewModel @Inject constructor(
             try {
                 _isLoading.value = true
                 medicationRepository.updateMedication(medication)
+                _medicationAdded.value = true // Trigger success
                 _isLoading.value = false
+                
+                // Reload medications
+                loadTodayMedications()
             } catch (e: Exception) {
                 _errorMessage.value = e.message
                 _isLoading.value = false
@@ -169,6 +178,33 @@ class MedicationViewModel @Inject constructor(
                 _errorMessage.value = e.message
             }
         }
+    }
+
+    /**
+     * Load medication for editing
+     */
+    fun loadMedicationForEdit(medicationId: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                android.util.Log.d("MedicationViewModel", "Loading medication with ID: $medicationId")
+                val medication = medicationRepository.getMedicationById(medicationId)
+                android.util.Log.d("MedicationViewModel", "Loaded medication: $medication")
+                _medicationToEdit.value = medication
+                _isLoading.value = false
+            } catch (e: Exception) {
+                android.util.Log.e("MedicationViewModel", "Error loading medication", e)
+                _errorMessage.value = e.message
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Clear medication to edit
+     */
+    fun clearMedicationToEdit() {
+        _medicationToEdit.value = null
     }
 
     /**

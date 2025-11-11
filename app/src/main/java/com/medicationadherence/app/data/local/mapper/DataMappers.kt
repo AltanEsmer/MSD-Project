@@ -49,6 +49,7 @@ fun Medication.toEntity(): MedicationEntity {
         dosage = dosage,
         frequency = frequency,
         instructions = instructions,
+        importance = importance,
         isActive = isActive,
         createdAt = createdAt,
         updatedAt = updatedAt
@@ -62,6 +63,7 @@ fun MedicationEntity.toDomain(): Medication {
         dosage = dosage,
         frequency = frequency,
         instructions = instructions,
+        importance = importance,
         isActive = isActive,
         createdAt = createdAt,
         updatedAt = updatedAt

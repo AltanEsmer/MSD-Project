@@ -29,6 +29,7 @@ data class Medication(
     val dosage: String,
     val frequency: List<String>, // ["08:00", "20:00"] format
     val instructions: String,
+    val importance: String = "medium", // "high", "medium", "low"
     val isActive: Boolean = true,
     val createdAt: LocalDateTime? = null,
     val updatedAt: LocalDateTime? = null

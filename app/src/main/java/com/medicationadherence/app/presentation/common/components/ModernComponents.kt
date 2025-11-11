@@ -179,13 +179,28 @@ fun ModernMedicationCard(
     icon: ImageVector,
     isTaken: Boolean,
     isPast: Boolean,
+    importance: String = "medium",
     onTakeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Get importance color
+    val importanceColor = when (importance) {
+        "high" -> Color(0xFFEF5350)
+        "low" -> Color(0xFF66BB6A)
+        else -> Color(0xFFFFA726)
+    }
+    
+    val cardBackgroundColor = when {
+        isTaken -> Green100
+        importance == "high" -> Color(0xFFFFEBEE)
+        importance == "low" -> Color(0xFFF1F8E9)
+        else -> Color.White
+    }
+    
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isTaken) Green100 else Color.White
+            containerColor = cardBackgroundColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(12.dp),
@@ -212,7 +227,7 @@ fun ModernMedicationCard(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             // Content
             Column(
                 modifier = Modifier.weight(1f)
@@ -222,34 +237,60 @@ fun ModernMedicationCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = medicationName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Badge(
-                        containerColor = when {
-                            isTaken -> Green600
-                            isPast -> Red600
-                            else -> Gray400
-                        }
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = time,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White
+                            text = medicationName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Importance badge
+                        if (!isTaken) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = importanceColor.copy(alpha = 0.15f)
+                                ),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = when (importance) {
+                                        "high" -> "🔴"
+                                        "low" -> "🟢"
+                                        else -> "🟡"
+                                    },
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                        Badge(
+                            containerColor = when {
+                                isTaken -> Green600
+                                isPast -> Red600
+                                else -> Gray400
+                            }
+                        ) {
+                            Text(
+                                text = time,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Text(
                     text = dosage,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Gray600
                 )
-                
+
                 if (!instructions.isNullOrEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -259,7 +300,7 @@ fun ModernMedicationCard(
                     )
                 }
             }
-            
+
             // Action button or checkmark
             if (!isTaken) {
                 Button(

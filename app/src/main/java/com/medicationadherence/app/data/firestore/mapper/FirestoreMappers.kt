@@ -50,6 +50,7 @@ fun Medication.toFirestoreMap(): Map<String, Any?> {
         "dosage" to dosage,
         "frequency" to frequency,
         "instructions" to instructions,
+        "importance" to importance,
         "isActive" to isActive,
         "createdAt" to (createdAt?.toFirestoreTimestamp() ?: Timestamp.now()),
         "updatedAt" to (updatedAt?.toFirestoreTimestamp() ?: Timestamp.now())
@@ -63,6 +64,7 @@ fun Map<String, Any?>.toMedication(): Medication {
         dosage = (this["dosage"] as? String) ?: "",
         frequency = (this["frequency"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
         instructions = (this["instructions"] as? String) ?: "",
+        importance = (this["importance"] as? String) ?: "medium",
         isActive = (this["isActive"] as? Boolean) ?: true,
         createdAt = (this["createdAt"] as? Timestamp)?.toLocalDateTime(),
         updatedAt = (this["updatedAt"] as? Timestamp)?.toLocalDateTime()
