@@ -227,6 +227,44 @@ buildscript {
   - Mac/Linux: `./gradlew signingReport`
 - Add SHA-1 in Firebase Console → Project Settings → Your Android App
 
+### Issue 6: "Failed to get service from broker" / "Unknown calling package name 'com.google.android.gms'"
+**Error Message:**
+```
+java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'
+Failed to get service from broker
+```
+
+**Solution:**
+This error occurs when Google Play Services cannot verify your app's identity. You need to add your debug SHA-1 fingerprint to Firebase:
+
+1. **Get your SHA-1 fingerprint:**
+   - Open terminal/command prompt in your project root
+   - Run: `gradlew signingReport` (Windows) or `./gradlew signingReport` (Mac/Linux)
+   - Look for the "SHA1" value under "Variant: debug"
+   - Copy the SHA-1 value (looks like: `A1:B2:C3:D4:E5:F6:...`)
+
+2. **Add SHA-1 to Firebase Console:**
+   - Go to [Firebase Console](https://console.firebase.google.com/)
+   - Select your project: `medication-adherence-app-d2cc2`
+   - Click the gear icon ⚙️ → **Project Settings**
+   - Scroll down to **Your apps** section
+   - Find your Android app (`com.medicationadherence.app`)
+   - Click **"Add fingerprint"**
+   - Paste your SHA-1 value
+   - Click **"Save"**
+
+3. **Download updated google-services.json (if needed):**
+   - After adding SHA-1, you may need to download a new `google-services.json`
+   - Click **"Download google-services.json"** button
+   - Replace the file in `app/google-services.json`
+
+4. **Clean and rebuild:**
+   - In Android Studio: **Build → Clean Project**
+   - Then: **Build → Rebuild Project**
+   - Run the app again
+
+**Note:** If you're using a release build, you'll also need to add the release SHA-1 fingerprint.
+
 ## Step 9: Security Rules (For Future Firestore Use)
 
 When you're ready to use Firestore, update security rules:

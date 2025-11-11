@@ -42,6 +42,7 @@ fun ModernPatientDashboardScreen(
 ) {
     val todayMedications by viewModel.todayMedications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val currentStreak by viewModel.currentStreak.collectAsState()
     
     // Calculate stats
     val totalDoses = todayMedications.sumOf { it.schedules.size }
@@ -49,9 +50,6 @@ fun ModernPatientDashboardScreen(
         med.schedules.count { it.status == AdherenceStatus.TAKEN }
     }
     val percentage = if (totalDoses > 0) (takenDoses * 100) / totalDoses else 0
-    
-    // Calculate streak (simplified for MVP)
-    val streak = 7
     
     // Current time for comparison
     val currentTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
@@ -161,7 +159,7 @@ fun ModernPatientDashboardScreen(
                             iconTint = Green600,
                             iconBackground = Green100,
                             label = "Streak",
-                            value = "$streak days",
+                            value = "$currentStreak days",
                             modifier = Modifier.weight(1f)
                         )
                         

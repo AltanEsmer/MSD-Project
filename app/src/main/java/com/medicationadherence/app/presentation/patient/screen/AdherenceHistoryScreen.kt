@@ -36,22 +36,28 @@ fun AdherenceHistoryScreen(
     onNavigateToProfile: () -> Unit
 ) {
     val todayMedications by viewModel.todayMedications.collectAsState()
+    val adherenceStats by viewModel.adherenceStats.collectAsState()
+    val currentStreak by viewModel.currentStreak.collectAsState()
+    val weeklyAdherence by viewModel.weeklyAdherence.collectAsState()
+    val monthlyAdherence by viewModel.monthlyAdherence.collectAsState()
     var viewMode by remember { mutableStateOf("week") }
     
-    // Calculate stats
-    val totalDoses = todayMedications.sumOf { it.schedules.size } * 30 // Simplified
-    val takenDoses = todayMedications.sumOf { med ->
-        med.schedules.count { it.status == AdherenceStatus.TAKEN }
+    // Load data when screen is first composed or view mode changes
+    LaunchedEffect(viewMode) {
+        if (viewMode == "week") {
+            viewModel.loadWeeklyAdherence()
+        } else {
+            viewModel.loadMonthlyAdherence()
+        }
     }
-    val adherencePercentage = if (totalDoses > 0) (takenDoses * 100) / totalDoses else 0
-    val currentStreak = 7 // Simplified
     
-    // Per-medication adherence
+    // Get adherence percentage
+    val adherencePercentage = adherenceStats?.adherencePercentage ?: 0
+    
+    // Per-medication adherence - calculate from today's schedules
     val medicationAdherence = todayMedications.map { medWithSchedule ->
-        val taken = medWithSchedule.schedules.count { it.status == AdherenceStatus.TAKEN }
-        val total = medWithSchedule.schedules.size
-        val percentage = if (total > 0) (taken * 100) / total else 0
-        Triple(medWithSchedule.medication.name, percentage, total)
+        val percentage = (medWithSchedule.adherenceRate * 100).toInt()
+        Triple(medWithSchedule.medication.name, percentage, medWithSchedule.schedules.size)
     }
     
     Box(modifier = Modifier.fillMaxSize()) {
@@ -164,7 +170,7 @@ fun AdherenceHistoryScreen(
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
-                            // Simple bar chart visualization
+                            // Bar chart visualization with real data
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -172,22 +178,23 @@ fun AdherenceHistoryScreen(
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.Bottom
                             ) {
+                                val adherenceData = if (viewMode == "week") weeklyAdherence else monthlyAdherence
                                 val days = if (viewMode == "week") {
                                     listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
                                 } else {
                                     listOf("W1", "W2", "W3", "W4")
                                 }
-                                val values = listOf(100, 85, 100, 90, 100, 75, 95)
                                 
                                 days.forEachIndexed { index, day ->
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         modifier = Modifier.weight(1f)
                                     ) {
+                                        val value = adherenceData.getOrNull(index)?.percentage ?: 0
                                         Box(
                                             modifier = Modifier
                                                 .width(32.dp)
-                                                .height(((values.getOrNull(index) ?: 0) * 1.5f).dp)
+                                                .height((value * 1.5f).dp)
                                                 .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                                                 .background(Blue600)
                                         )
@@ -206,6 +213,24 @@ fun AdherenceHistoryScreen(
                 
                 // Calendar View
                 item {
+                    var calendarData by remember { mutableStateOf<Map<Int, Boolean>>(emptyMap()) }
+                    
+                    // Load calendar data
+                    LaunchedEffect(Unit) {
+                        val now = java.time.LocalDateTime.now()
+                        val javaToday = java.time.LocalDate.of(now.year, now.monthValue, now.dayOfMonth)
+                        val lastDayOfMonth = javaToday.withDayOfMonth(javaToday.lengthOfMonth())
+                        
+                        val dataMap = mutableMapOf<Int, Boolean>()
+                        for (day in 1..lastDayOfMonth.dayOfMonth) {
+                            val javaDate = javaToday.withDayOfMonth(day)
+                            val kotlinDate = kotlinx.datetime.LocalDate(javaDate.year, javaDate.monthValue, javaDate.dayOfMonth)
+                            val adherence = viewModel.getAdherenceForDate(kotlinDate)
+                            dataMap[day] = adherence
+                        }
+                        calendarData = dataMap
+                    }
+                    
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -231,7 +256,10 @@ fun AdherenceHistoryScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Oct 2024")
+                                    val now = java.time.LocalDateTime.now()
+                                    val monthName = java.time.Month.of(now.monthValue).toString()
+                                        .lowercase().replaceFirstChar { it.uppercase() }
+                                    Text("$monthName ${now.year}")
                                 }
                             }
                             
@@ -255,31 +283,49 @@ fun AdherenceHistoryScreen(
                                     }
                                 }
                                 
-                                // Calendar days (simplified)
-                                repeat(4) { week ->
+                                // Calendar days with real data
+                                val now = java.time.LocalDateTime.now()
+                                val javaToday = java.time.LocalDate.of(now.year, now.monthValue, now.dayOfMonth)
+                                val firstDayOfMonth = javaToday.withDayOfMonth(1)
+                                val lastDayOfMonth = javaToday.withDayOfMonth(javaToday.lengthOfMonth())
+                                val startDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // 0 = Sunday
+                                val totalDays = lastDayOfMonth.dayOfMonth
+                                val weeksNeeded = kotlin.math.ceil((startDayOfWeek + totalDays) / 7.0).toInt()
+                                
+                                repeat(weeksNeeded) { week ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceEvenly
                                     ) {
                                         repeat(7) { day ->
-                                            val dayNum = week * 7 + day + 1
-                                            val adherence = dayNum % 5 != 0 // Mock data
-                                            Box(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .aspectRatio(1f)
-                                                    .padding(2.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(
-                                                        if (adherence) Green100 else Red100
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = if (dayNum <= 28) dayNum.toString() else "",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = if (adherence) Green700 else Red700,
-                                                    textAlign = TextAlign.Center
+                                            val cellIndex = week * 7 + day
+                                            val dayNum = cellIndex - startDayOfWeek + 1
+                                            
+                                            if (dayNum in 1..totalDays) {
+                                                val adherence = calendarData[dayNum] ?: false
+                                                Box(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .aspectRatio(1f)
+                                                        .padding(2.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(
+                                                            if (adherence) Green100 else Red100
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = dayNum.toString(),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = if (adherence) Green700 else Red700,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .aspectRatio(1f)
                                                 )
                                             }
                                         }
@@ -382,40 +428,82 @@ fun AdherenceHistoryScreen(
                     }
                 }
                 
-                // Insights
+                // Insights (removed dummy data - can be enhanced with ML insights later)
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Blue50
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                    if (adherencePercentage >= 80) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Blue50
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(
-                                text = "💡 Insights",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Blue900
-                            )
-                            Text(
-                                text = "• You're most consistent with morning medications",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Blue800
-                            )
-                            Text(
-                                text = "• Evening doses are occasionally missed",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Blue800
-                            )
-                            Text(
-                                text = "• Your adherence improved 5% this month!",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Blue800
-                            )
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "💡 Great Job!",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Blue900
+                                )
+                                Text(
+                                    text = "You're maintaining excellent adherence! Keep up the good work.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Blue800
+                                )
+                            }
+                        }
+                    } else if (adherencePercentage >= 50) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Orange50
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "💡 Reminder",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Orange600
+                                )
+                                Text(
+                                    text = "Try to take your medications consistently to improve your health outcomes.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Orange600
+                                )
+                            }
+                        }
+                    } else {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Red100
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "💡 Important",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Red700
+                                )
+                                Text(
+                                    text = "Consider setting up reminders to help maintain your medication schedule.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Red700
+                                )
+                            }
                         }
                     }
                 }

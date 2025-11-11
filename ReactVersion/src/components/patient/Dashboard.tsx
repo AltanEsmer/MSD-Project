@@ -50,10 +50,59 @@ export default function Dashboard({ patient, medications, adherenceRecords, onNa
   const todayTotal = todaySchedule.length;
   const todayPercentage = todayTotal > 0 ? Math.round((todayTaken / todayTotal) * 100) : 0;
 
-  // Calculate streak
+  // Calculate streak (consecutive days with all medications taken)
   const calculateStreak = () => {
-    // Simplified streak calculation - would be more complex in real app
-    return adherenceRecords.filter(r => r.taken).length > 5 ? 7 : 3;
+    if (medications.length === 0) return 0;
+    if (adherenceRecords.length === 0) return 0;
+
+    let streak = 0;
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    
+    let currentDate = new Date(todayDate);
+    const maxDaysToCheck = 365;
+    let daysChecked = 0;
+    
+    // Count backwards from today until we find a day with missed doses
+    while (daysChecked < maxDaysToCheck) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      // Check if all medications had all their expected doses taken on this day
+      let allMedicationsComplete = true;
+      
+      for (const medication of medications) {
+        const expectedDoses = medication.times.length;
+        if (expectedDoses === 0) continue; // Skip medications with no scheduled times
+        
+        // Get all records for this medication on this date
+        const dayRecords = adherenceRecords.filter(
+          r => r.medicationId === medication.id && r.date === dateStr
+        );
+        
+        // Count how many doses were actually taken
+        const takenDoses = dayRecords.filter(r => r.taken === true).length;
+        
+        // If we don't have enough taken doses, this day breaks the streak
+        if (takenDoses < expectedDoses) {
+          allMedicationsComplete = false;
+          break;
+        }
+      }
+      
+      // If any medication was incomplete, stop counting
+      if (!allMedicationsComplete) {
+        break;
+      }
+      
+      // This day counts towards the streak
+      streak++;
+      daysChecked++;
+      
+      // Move to previous day
+      currentDate.setDate(currentDate.getDate() - 1);
+    }
+    
+    return streak;
   };
 
   const streak = calculateStreak();
