@@ -117,11 +117,6 @@ fun MedicationApp(
             }
         }
     }
-    var patientName by remember { mutableStateOf("Patient") }
-    var patientAge by remember { mutableStateOf("") }
-    var healthConditions by remember { mutableStateOf(emptyList<String>()) }
-    var emergencyContact by remember { mutableStateOf("") }
-    var bloodType by remember { mutableStateOf<String?>(null) }
     
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -183,11 +178,7 @@ fun MedicationApp(
             
             composable("profile_setup") {
                 ProfileSetupScreen(
-                    onComplete = { name, age, conditions, contact ->
-                        patientName = name
-                        patientAge = age
-                        healthConditions = conditions
-                        emergencyContact = contact
+                    onComplete = {
                         onOnboardingComplete()
                         navController.navigate("patient_dashboard") {
                             popUpTo("profile_setup") { inclusive = true }
@@ -202,7 +193,6 @@ fun MedicationApp(
             // Patient App Screens
             composable("patient_dashboard") {
                 ModernPatientDashboardScreen(
-                    patientName = patientName,
                     onNavigateToMedications = {
                         navController.navigate("medications_list")
                     },
@@ -293,11 +283,6 @@ fun MedicationApp(
             
             composable("patient_profile") {
                 PatientProfileScreen(
-                    patientName = patientName,
-                    patientAge = patientAge,
-                    healthConditions = healthConditions,
-                    emergencyContact = emergencyContact,
-                    bloodType = bloodType,
                     onBack = {
                         navController.popBackStack()
                     },
@@ -324,17 +309,7 @@ fun MedicationApp(
             
             composable("edit_profile") {
                 EditProfileScreen(
-                    initialName = patientName,
-                    initialAge = patientAge,
-                    initialConditions = healthConditions,
-                    initialEmergencyContact = emergencyContact,
-                    initialBloodType = bloodType,
-                    onSave = { name, age, conditions, contact, bt ->
-                        patientName = name
-                        patientAge = age
-                        healthConditions = conditions
-                        emergencyContact = contact
-                        bloodType = bt
+                    onSave = {
                         navController.popBackStack()
                     },
                     onCancel = {

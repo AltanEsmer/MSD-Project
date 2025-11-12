@@ -16,7 +16,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.medicationadherence.app.presentation.common.components.HealthConditionBadge
+import com.medicationadherence.app.presentation.patient.viewmodel.ProfileViewModel
 import com.medicationadherence.app.presentation.theme.*
 
 /**
@@ -25,13 +27,25 @@ import com.medicationadherence.app.presentation.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileSetupScreen(
-    onComplete: (name: String, age: String, conditions: List<String>, emergencyContact: String) -> Unit,
+    viewModel: ProfileViewModel = hiltViewModel(),
+    onComplete: () -> Unit,
     onBack: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
     var emergencyContact by remember { mutableStateOf("") }
     var selectedConditions by remember { mutableStateOf(setOf<String>()) }
+    
+    val isLoading by viewModel.isLoading.collectAsState()
+    val updateSuccess by viewModel.updateSuccess.collectAsState()
+    
+    // Navigate to dashboard when profile is successfully created
+    LaunchedEffect(updateSuccess) {
+        if (updateSuccess) {
+            viewModel.clearUpdateSuccess()
+            onComplete()
+        }
+    }
     
     val commonConditions = listOf(
         "Diabetes",
@@ -196,22 +210,35 @@ fun ProfileSetupScreen(
                 // Continue Button
                 Button(
                     onClick = {
-                        onComplete(name, age, selectedConditions.toList(), emergencyContact)
+                        viewModel.updateProfile(
+                            name = name,
+                            age = age,
+                            conditions = selectedConditions.toList(),
+                            emergencyContact = emergencyContact,
+                            bloodType = null
+                        )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    enabled = isValid,
+                    enabled = isValid && !isLoading,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Blue600
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        text = "Continue",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White
+                        )
+                    } else {
+                        Text(
+                            text = "Continue",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
                 
                 // Progress Indicator

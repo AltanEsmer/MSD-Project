@@ -16,7 +16,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.medicationadherence.app.presentation.common.components.*
+import com.medicationadherence.app.presentation.patient.viewmodel.ProfileViewModel
 import com.medicationadherence.app.presentation.theme.*
 import androidx.compose.material.icons.filled.Logout
 
@@ -26,11 +28,7 @@ import androidx.compose.material.icons.filled.Logout
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientProfileScreen(
-    patientName: String = "Patient",
-    patientAge: String = "65",
-    healthConditions: List<String> = emptyList(),
-    emergencyContact: String = "",
-    bloodType: String? = null,
+    viewModel: ProfileViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onSwitchToFamily: () -> Unit,
     onNavigateToHome: () -> Unit,
@@ -39,12 +37,35 @@ fun PatientProfileScreen(
     onNavigateToEditProfile: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null
 ) {
+    val profile by viewModel.profile.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    
+    // Load profile when screen first appears
+    LaunchedEffect(Unit) {
+        viewModel.loadProfile()
+    }
+    
+    val patientName = profile?.name ?: "Patient"
+    val patientAge = profile?.age?.toString() ?: ""
+    val healthConditions = profile?.conditions ?: emptyList()
+    val emergencyContact = profile?.emergencyContact ?: ""
+    val bloodType = profile?.bloodType
     var notifications by remember { mutableStateOf(true) }
     var sound by remember { mutableStateOf(true) }
     var textSize by remember { mutableStateOf(16f) }
     var highContrast by remember { mutableStateOf(false) }
     var voiceGuidance by remember { mutableStateOf(false) }
     var simplifiedMode by remember { mutableStateOf(false) }
+    
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
     
     Box(modifier = Modifier.fillMaxSize()) {
         Column(

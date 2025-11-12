@@ -32,8 +32,8 @@ import kotlinx.datetime.toLocalDateTime
  */
 @Composable
 fun ModernPatientDashboardScreen(
-    patientName: String = "Patient",
     viewModel: MedicationViewModel = hiltViewModel(),
+    profileViewModel: com.medicationadherence.app.presentation.patient.viewmodel.ProfileViewModel = hiltViewModel(),
     onNavigateToMedications: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToProfile: () -> Unit,
@@ -43,6 +43,14 @@ fun ModernPatientDashboardScreen(
     val todayMedications by viewModel.todayMedications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val currentStreak by viewModel.currentStreak.collectAsState()
+    
+    val profile by profileViewModel.profile.collectAsState()
+    val patientName = profile?.name ?: "Patient"
+    
+    // Load profile when screen first appears
+    LaunchedEffect(Unit) {
+        profileViewModel.loadProfile()
+    }
     
     // Calculate stats
     val totalDoses = todayMedications.sumOf { it.schedules.size }

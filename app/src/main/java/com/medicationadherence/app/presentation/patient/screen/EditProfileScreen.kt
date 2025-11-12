@@ -25,20 +25,33 @@ import com.medicationadherence.app.presentation.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
-    initialName: String = "",
-    initialAge: String = "",
-    initialConditions: List<String> = emptyList(),
-    initialEmergencyContact: String = "",
-    initialBloodType: String? = null,
-    onSave: (name: String, age: String, conditions: List<String>, emergencyContact: String, bloodType: String?) -> Unit,
+    onSave: () -> Unit,
     onCancel: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    var name by remember { mutableStateOf(initialName) }
-    var age by remember { mutableStateOf(initialAge) }
-    var emergencyContact by remember { mutableStateOf(initialEmergencyContact) }
-    var bloodType by remember { mutableStateOf(initialBloodType ?: "") }
-    var selectedConditions by remember { mutableStateOf(initialConditions.toSet()) }
+    val profile by viewModel.profile.collectAsState()
+    
+    var name by remember { mutableStateOf("") }
+    var age by remember { mutableStateOf("") }
+    var emergencyContact by remember { mutableStateOf("") }
+    var bloodType by remember { mutableStateOf("") }
+    var selectedConditions by remember { mutableStateOf(setOf<String>()) }
+
+    // Load profile data when screen opens
+    LaunchedEffect(Unit) {
+        viewModel.loadProfile()
+    }
+    
+    // Initialize form with profile data when it loads
+    LaunchedEffect(profile) {
+        profile?.let {
+            name = it.name
+            age = it.age.toString()
+            emergencyContact = it.emergencyContact
+            bloodType = it.bloodType ?: ""
+            selectedConditions = it.conditions.toSet()
+        }
+    }
 
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -62,7 +75,8 @@ fun EditProfileScreen(
     // Show success message and navigate back
     LaunchedEffect(updateSuccess) {
         if (updateSuccess) {
-            onSave(name, age, selectedConditions.toList(), emergencyContact, bloodType.ifBlank { null })
+            viewModel.clearUpdateSuccess()
+            onSave()
         }
     }
 
