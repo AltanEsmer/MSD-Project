@@ -11,8 +11,6 @@ import android.os.Build
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.medicationadherence.app.data.firestore.FirestoreTokenDataSource
@@ -58,12 +56,42 @@ class MedicationApp : Application(), Configuration.Provider {
         super.onCreate()
         createNotificationChannels()
         
-        // Only initialize FCM if Google Play Services is available
-        if (isGooglePlayServicesAvailable()) {
-            initializeFCM()
-        } else {
-            Log.w("MedicationApp", "Google Play Services not available. FCM will be disabled.")
+        // Set up uncaught exception handler for Google Play Services SecurityExceptions
+        // This prevents the app from crashing when Google Play Services throws SecurityException
+        // The error can occur in background threads (like GoogleApiManager), so we catch it globally
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
+            // Check if this is a Google Play Services SecurityException
+            val isGooglePlayServicesError = exception is SecurityException && 
+                (exception.message?.contains("com.google.android.gms") == true ||
+                 exception.message?.contains("Unknown calling package") == true ||
+                 exception.message?.contains("Failed to get service from broker") == true)
+            
+            if (isGooglePlayServicesError) {
+                Log.w("MedicationApp", "Caught SecurityException from Google Play Services: ${exception.message}. " +
+                        "This usually means SHA-1/SHA-256 fingerprints are not registered in Firebase Console. " +
+                        "The app will continue without Google Play Services features.", exception)
+                // Don't crash the app, just log the error
+                return@setDefaultUncaughtExceptionHandler
+            }
+            
+            // Check stack trace for GoogleApiManager errors
+            val stackTrace = exception.stackTraceToString()
+            if (stackTrace.contains("GoogleApiManager") || 
+                stackTrace.contains("com.google.android.gms")) {
+                Log.w("MedicationApp", "Caught Google Play Services error in background thread: ${exception.message}. " +
+                        "The app will continue without Google Play Services features.", exception)
+                return@setDefaultUncaughtExceptionHandler
+            }
+            
+            // For other exceptions, use the default handler
+            defaultHandler?.uncaughtException(thread, exception)
         }
+        
+        // Initialize FCM with error handling
+        // We don't check GoogleApiAvailability first because that can also throw SecurityException
+        // Instead, we just try to initialize and catch any errors
+        initializeFCM()
         
         // Register receiver for FCM token refresh
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -90,43 +118,43 @@ class MedicationApp : Application(), Configuration.Provider {
     }
     
     /**
-     * Check if Google Play Services is available
-     */
-    private fun isGooglePlayServicesAvailable(): Boolean {
-        val apiAvailability = GoogleApiAvailability.getInstance()
-        val resultCode = apiAvailability.isGooglePlayServicesAvailable(this)
-        return resultCode == ConnectionResult.SUCCESS
-    }
-    
-    /**
      * Initialize Firebase Cloud Messaging
      * Handles errors gracefully if Google Play Services is not available
+     * We don't check GoogleApiAvailability first because that can also throw SecurityException
      */
     private fun initializeFCM() {
         try {
+            // Wrap in try-catch to handle SecurityException from Google Play Services
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                 if (!task.isSuccessful) {
                     val exception = task.exception
                     if (exception != null) {
-                        Log.w("MedicationApp", "Failed to get FCM token: ${exception.message}", exception)
+                        val errorMessage = exception.message ?: ""
+                        Log.w("MedicationApp", "Failed to get FCM token: $errorMessage", exception)
+                        
                         // Check if it's a Google Play Services issue
-                        if (exception.message?.contains("Google Play Services") == true ||
-                            exception.message?.contains("com.google.android.gms") == true) {
-                            Log.w("MedicationApp", "Google Play Services issue detected. FCM disabled.")
+                        if (errorMessage.contains("Google Play Services") ||
+                            errorMessage.contains("com.google.android.gms") ||
+                            errorMessage.contains("Unknown calling package") ||
+                            errorMessage.contains("Failed to get service from broker") ||
+                            exception is SecurityException) {
+                            Log.w("MedicationApp", "Google Play Services issue detected. FCM will be disabled. " +
+                                    "Please register SHA-1/SHA-256 fingerprints in Firebase Console if you need FCM.")
                         }
                     }
                     return@addOnCompleteListener
                 }
 
                 val token = task.result
-                Log.d("MedicationApp", "FCM token: $token")
+                Log.d("MedicationApp", "FCM token retrieved successfully: ${token.take(20)}...")
                 saveFcmToken(token)
             }
         } catch (e: SecurityException) {
-            Log.w("MedicationApp", "SecurityException when initializing FCM: ${e.message}", e)
+            Log.w("MedicationApp", "SecurityException when initializing FCM: ${e.message}. " +
+                    "FCM will be disabled. Please register SHA-1/SHA-256 fingerprints in Firebase Console.", e)
             // App can continue without FCM
         } catch (e: Exception) {
-            Log.w("MedicationApp", "Exception when initializing FCM: ${e.message}", e)
+            Log.w("MedicationApp", "Exception when initializing FCM: ${e.message}. FCM will be disabled.", e)
             // App can continue without FCM
         }
     }

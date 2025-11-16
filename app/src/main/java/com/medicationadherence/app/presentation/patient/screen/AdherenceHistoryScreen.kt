@@ -33,7 +33,8 @@ fun AdherenceHistoryScreen(
     onBack: () -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToMedications: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToMessages: () -> Unit = {}
 ) {
     val todayMedications by viewModel.todayMedications.collectAsState()
     val adherenceStats by viewModel.adherenceStats.collectAsState()
@@ -523,13 +524,15 @@ fun AdherenceHistoryScreen(
                     0 -> onNavigateToHome()
                     1 -> onNavigateToMedications()
                     2 -> {} // Already on history
-                    3 -> onNavigateToProfile()
+                    3 -> onNavigateToMessages()
+                    4 -> onNavigateToProfile()
                 }
             },
             items = listOf(
                 BottomNavItem(Icons.Default.Home, "Home"),
                 BottomNavItem(Icons.Default.Medication, "Medications"),
                 BottomNavItem(Icons.Default.History, "History"),
+                BottomNavItem(Icons.Default.Message, "Messages"),
                 BottomNavItem(Icons.Default.Person, "Profile")
             ),
             modifier = Modifier.align(Alignment.BottomCenter)

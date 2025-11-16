@@ -37,6 +37,7 @@ fun ModernPatientDashboardScreen(
     onNavigateToMedications: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToMessages: () -> Unit = {},
     onAddMedication: () -> Unit,
     onSwitchToCaregiverMode: () -> Unit = {}
 ) {
@@ -269,13 +270,15 @@ fun ModernPatientDashboardScreen(
                     0 -> {} // Already on home
                     1 -> onNavigateToMedications()
                     2 -> onNavigateToHistory()
-                    3 -> onNavigateToProfile()
+                    3 -> onNavigateToMessages()
+                    4 -> onNavigateToProfile()
                 }
             },
             items = listOf(
                 BottomNavItem(Icons.Default.Home, "Home"),
                 BottomNavItem(Icons.Default.Medication, "Medications"),
                 BottomNavItem(Icons.Default.History, "History"),
+                BottomNavItem(Icons.Default.Message, "Messages"),
                 BottomNavItem(Icons.Default.Person, "Profile")
             ),
             modifier = Modifier.align(Alignment.BottomCenter)

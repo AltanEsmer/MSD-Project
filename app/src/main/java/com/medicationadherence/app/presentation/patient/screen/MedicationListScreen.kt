@@ -34,7 +34,8 @@ fun MedicationListScreen(
     onEdit: (String) -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToHistory: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToMessages: () -> Unit = {}
 ) {
     val todayMedications by viewModel.todayMedications.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
@@ -176,13 +177,15 @@ fun MedicationListScreen(
                     0 -> onNavigateToHome()
                     1 -> {} // Already on medications
                     2 -> onNavigateToHistory()
-                    3 -> onNavigateToProfile()
+                    3 -> onNavigateToMessages()
+                    4 -> onNavigateToProfile()
                 }
             },
             items = listOf(
                 BottomNavItem(Icons.Default.Home, "Home"),
                 BottomNavItem(Icons.Default.Medication, "Medications"),
                 BottomNavItem(Icons.Default.History, "History"),
+                BottomNavItem(Icons.Default.Message, "Messages"),
                 BottomNavItem(Icons.Default.Person, "Profile")
             ),
             modifier = Modifier.align(Alignment.BottomCenter)

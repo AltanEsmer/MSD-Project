@@ -34,6 +34,7 @@ fun PatientProfileScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToMedications: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToMessages: () -> Unit = {},
     onNavigateToEditProfile: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null
 ) {
@@ -496,19 +497,21 @@ fun PatientProfileScreen(
         
         // Bottom Navigation
         BottomNavBar(
-            selectedItem = 3,
+            selectedItem = 4,
             onItemSelected = { index ->
                 when (index) {
                     0 -> onNavigateToHome()
                     1 -> onNavigateToMedications()
                     2 -> onNavigateToHistory()
-                    3 -> {} // Already on profile
+                    3 -> onNavigateToMessages()
+                    4 -> {} // Already on profile
                 }
             },
             items = listOf(
                 BottomNavItem(Icons.Default.Home, "Home"),
                 BottomNavItem(Icons.Default.Medication, "Medications"),
                 BottomNavItem(Icons.Default.History, "History"),
+                BottomNavItem(Icons.Default.Message, "Messages"),
                 BottomNavItem(Icons.Default.Person, "Profile")
             ),
             modifier = Modifier.align(Alignment.BottomCenter)

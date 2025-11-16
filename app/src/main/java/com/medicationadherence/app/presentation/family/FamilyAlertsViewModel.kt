@@ -40,15 +40,65 @@ class FamilyAlertsViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _patientContacts = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    private var alertsListener: (() -> Unit)? = null
+
     init {
         // Load data asynchronously to avoid blocking initialization
         viewModelScope.launch {
             try {
                 loadAlerts()
+                setupRealtimeListener()
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to initialize alerts: ${e.message}"
             }
         }
+    }
+
+    /**
+     * Setup real-time listener for alerts
+     */
+    private fun setupRealtimeListener() {
+        viewModelScope.launch {
+            try {
+                alertsListener = alertDataSource.listenToAlerts { alerts ->
+                    viewModelScope.launch {
+                        _alerts.value = alerts
+                            .distinctBy { "${it.patientId}-${it.type}-${it.medicationName}" }
+                            .sortedWith(compareByDescending<Alert> { it.type.ordinal }.thenByDescending { it.timestamp })
+                        
+                        // Load contact info for all patients
+                        loadPatientContacts(alerts.map { it.patientId }.distinct())
+                    }
+                }
+            } catch (e: Exception) {
+                // Real-time updates not available, continue with manual refresh
+            }
+        }
+    }
+
+    /**
+     * Load patient contact information
+     */
+    private suspend fun loadPatientContacts(patientIds: List<String>) {
+        val contacts = mutableMapOf<String, String>()
+        patientIds.forEach { patientId ->
+            try {
+                val patient = patientDataSource.getPatient(patientId)
+                patient?.emergencyContact?.let { contact ->
+                    contacts[patientId] = contact
+                }
+            } catch (e: Exception) {
+                // Failed to get patient contact
+            }
+        }
+        _patientContacts.value = contacts
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        alertsListener?.invoke()
     }
 
     /**
@@ -89,6 +139,9 @@ class FamilyAlertsViewModel @Inject constructor(
                         // Silently fail - alert won't be persisted but app continues
                     }
                 }
+
+                // Load patient contacts
+                loadPatientContacts(allAlerts.map { it.patientId }.distinct())
             } catch (e: SecurityException) {
                 // Google Play Services issue - show empty alerts instead of error
                 _alerts.value = emptyList()
@@ -262,6 +315,13 @@ class FamilyAlertsViewModel @Inject constructor(
      */
     fun getActiveAlertsCount(): Int {
         return _alerts.value.count { !it.isResolved && !it.isDismissed }
+    }
+
+    /**
+     * Get patient phone number for contact
+     */
+    fun getPatientPhoneNumber(patientId: String): String? {
+        return _patientContacts.value[patientId]
     }
 }
 

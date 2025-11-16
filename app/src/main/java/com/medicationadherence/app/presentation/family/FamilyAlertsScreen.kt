@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import android.widget.Toast
+import android.content.Intent
+import android.net.Uri
 import com.medicationadherence.app.domain.model.Alert
 import com.medicationadherence.app.domain.model.AlertType
 import com.medicationadherence.app.presentation.common.components.BottomNavBar
@@ -40,7 +42,8 @@ fun FamilyAlertsScreen(
     onBack: () -> Unit = {},
     onNavigateToHome: () -> Unit = {},
     onNavigateToMessages: () -> Unit = {},
-    onNavigateToReports: () -> Unit = {}
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToPatientDetails: (String) -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val alerts by viewModel.alerts.collectAsState()
@@ -159,6 +162,7 @@ fun FamilyAlertsScreen(
                             alert = alert,
                             onDismiss = { viewModel.dismissAlert(alert.id) },
                             onResolve = { viewModel.resolveAlert(alert.id) },
+                            onViewPatient = { onNavigateToPatientDetails(alert.patientId) },
                             viewModel = viewModel
                         )
                     }
@@ -198,8 +202,10 @@ private fun AlertCardReal(
     alert: Alert,
     onDismiss: () -> Unit,
     onResolve: () -> Unit,
+    onViewPatient: () -> Unit,
     viewModel: FamilyAlertsViewModel
 ) {
+    val context = LocalContext.current
     val iconColor = when (alert.type) {
         AlertType.CRITICAL -> Red600
         AlertType.WARNING -> Orange600
@@ -281,7 +287,7 @@ private fun AlertCardReal(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { /* View patient */ },
+                    onClick = onViewPatient,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -307,7 +313,18 @@ private fun AlertCardReal(
                     Text("Dismiss")
                 }
                 OutlinedButton(
-                    onClick = { /* Contact */ },
+                    onClick = {
+                        viewModel.getPatientPhoneNumber(alert.patientId)?.let { phoneNumber ->
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:$phoneNumber")
+                            }
+                            context.startActivity(intent)
+                        } ?: Toast.makeText(
+                            context,
+                            "No contact number available",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp)
                 ) {

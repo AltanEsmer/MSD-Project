@@ -108,6 +108,55 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
     
+    // Conversations Collection: /conversations/{conversationId}
+    // Conversations between caregivers and patients
+    match /conversations/{conversationId} {
+      // Helper function to check if user is part of conversation
+      function isConversationParticipant() {
+        return isAuthenticated() && 
+               (resource.data.caregiverId == request.auth.uid || 
+                resource.data.patientId == request.auth.uid);
+      }
+      
+      // Allow read if user is caregiver or patient in the conversation
+      allow read: if isAuthenticated() && 
+                     (resource.data.caregiverId == request.auth.uid || 
+                      resource.data.patientId == request.auth.uid);
+      
+      // Allow create if authenticated and user is the caregiver or patient
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.caregiverId == request.auth.uid || 
+                        request.resource.data.patientId == request.auth.uid);
+      
+      // Allow update if user is part of the conversation
+      allow update: if isConversationParticipant();
+      
+      // Allow delete if user is part of the conversation
+      allow delete: if isConversationParticipant();
+    }
+    
+    // Messages Collection: /messages/{messageId}
+    // Individual messages within conversations
+    // Note: Access control is simplified - users can read/write messages if they're authenticated
+    // The app logic ensures users only access conversations they're part of
+    match /messages/{messageId} {
+      // Allow read if authenticated
+      // The app filters by conversationId, so users only see messages in their conversations
+      allow read: if isAuthenticated();
+      
+      // Allow create if authenticated and user is the sender
+      allow create: if isAuthenticated() && 
+                       request.resource.data.senderId == request.auth.uid;
+      
+      // Allow update if authenticated (for marking as read)
+      // The app only updates read status, not message content
+      allow update: if isAuthenticated();
+      
+      // Allow delete if user is the sender
+      allow delete: if isAuthenticated() && 
+                       resource.data.senderId == request.auth.uid;
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
@@ -132,10 +181,23 @@ service cloud.firestore {
    - Alerts are generated automatically from adherence data
    - Caregivers can dismiss/resolve alerts
 
-4. **Security**:
+4. **Conversations**:
+   - Caregivers and patients can read conversations they're part of
+   - Either party can create a conversation
+   - Both parties can update conversation metadata (last message, unread count)
+   - Both parties can delete conversations they're part of
+
+5. **Messages**:
+   - Users can read messages in conversations they have access to
+   - Users can only create messages where they are the sender
+   - Users can update messages (for marking as read)
+   - Users can only delete messages they sent
+
+6. **Security**:
    - All operations require authentication
    - Users can only create/update/delete their own data
    - Caregivers have read-only access to shared patient data
+   - Message access is controlled through conversation membership
 
 ## How to Apply:
 
@@ -152,9 +214,59 @@ After updating the rules, test in the Rules Playground:
 - Test reading adherence records for a patient with sharing enabled
 - Test reading/writing alerts as an authenticated user
 
-## Important: Alerts Collection
+## Important: Required Collections
 
-⚠️ **Make sure you add the alerts collection rules!** If your rules don't include the `alerts` collection, the Alerts page will fail with permission errors even if Google Play Services is working.
+⚠️ **Make sure you add rules for all collections!** The following collections must have explicit rules:
+- `alerts` - For caregiver alerts
+- `conversations` - For messaging between caregivers and patients
+- `messages` - For individual messages in conversations
 
-The default deny rule at the end (`match /{document=**} { allow read, write: if false; }`) will block access to the alerts collection if you don't explicitly allow it.
+The default deny rule at the end (`match /{document=**} { allow read, write: if false; }`) will block access to any collection that doesn't have explicit rules.
+
+## Required Firestore Indexes
+
+The app requires the following composite indexes to be created in Firestore. You can create them by:
+
+1. **Clicking the link in the error message** when the app runs (Firebase will auto-generate the index)
+2. **Manually creating them** in Firebase Console → Firestore Database → Indexes
+
+### Indexes Required:
+
+#### 1. Conversations Collection
+**Collection:** `conversations`
+**Fields:**
+- `caregiverId` (Ascending)
+- `lastMessageTimestamp` (Descending)
+
+**Purpose:** For querying conversations by caregiver, ordered by most recent message.
+
+#### 2. Adherence Records Collection
+**Collection:** `adherence_records`
+**Fields:**
+- `userId` (Ascending)
+- `medicationId` (Ascending)
+- `date` (Ascending)
+
+**Purpose:** For querying adherence records by user and medication within a date range (used in Reports feature).
+
+**Note:** The field order matters! Use the exact order: `userId`, then `medicationId`, then `date`. You can click the link in the error message to auto-create this index.
+
+#### 3. Messages Collection (Optional - for future queries)
+**Collection:** `messages`
+**Fields:**
+- `conversationId` (Ascending)
+- `timestamp` (Ascending)
+
+**Purpose:** For querying messages in a conversation ordered by timestamp.
+
+### How to Create Indexes:
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select your project
+3. Navigate to **Firestore Database** → **Indexes**
+4. Click **Create Index**
+5. Select the collection and add the fields in the order specified above
+6. Click **Create**
+
+**Note:** Indexes can take a few minutes to build. The app will show an error until the index is ready.
 

@@ -7,7 +7,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.medicationadherence.app.data.auth.FirebaseAuthDataSource
 import com.medicationadherence.app.data.firestore.FirestoreAdherenceDataSource
 import com.medicationadherence.app.data.firestore.FirestoreMedicationDataSource
+import com.medicationadherence.app.data.firestore.FirestoreMessageDataSource
 import com.medicationadherence.app.data.firestore.FirestorePatientDataSource
+import com.medicationadherence.app.data.firestore.FirestoreReportsDataSource
 import com.medicationadherence.app.data.firestore.FirestoreTokenDataSource
 import com.medicationadherence.app.data.local.LocalMedicationDataSource
 import com.medicationadherence.app.data.local.database.MedicationDatabase
@@ -155,6 +157,30 @@ object AppModule {
         firestore: FirebaseFirestore
     ): FirestoreTokenDataSource {
         return FirestoreTokenDataSource(firestore)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirestoreMessageDataSource(
+        firestore: FirebaseFirestore
+    ): FirestoreMessageDataSource {
+        return FirestoreMessageDataSource(firestore)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirestoreReportsDataSource(
+        firestore: FirebaseFirestore,
+        patientDataSource: FirestorePatientDataSource,
+        medicationDataSource: FirestoreMedicationDataSource,
+        adherenceDataSource: FirestoreAdherenceDataSource
+    ): FirestoreReportsDataSource {
+        return FirestoreReportsDataSource(
+            firestore,
+            patientDataSource,
+            medicationDataSource,
+            adherenceDataSource
+        )
     }
 
     @Provides

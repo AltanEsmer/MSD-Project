@@ -1,6 +1,7 @@
 package com.medicationadherence.app.data.firestore
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.medicationadherence.app.domain.model.Alert
 import com.medicationadherence.app.domain.model.AlertType
 import kotlinx.coroutines.tasks.await
@@ -42,6 +43,26 @@ class FirestoreAlertDataSource @Inject constructor(
             // Other errors - return empty list to prevent crashes
             emptyList()
         }
+    }
+
+    /**
+     * Setup real-time listener for active alerts
+     */
+    fun listenToAlerts(onAlertsChanged: (List<Alert>) -> Unit): () -> Unit {
+        val registration = firestore.collection(COLLECTION_ALERTS)
+            .whereEqualTo("isDismissed", false)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    return@addSnapshotListener
+                }
+                
+                val alerts = snapshot.documents.mapNotNull { doc ->
+                    doc.toAlert()
+                }
+                onAlertsChanged(alerts)
+            }
+        
+        return { registration.remove() }
     }
 
     /**

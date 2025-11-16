@@ -202,6 +202,9 @@ fun MedicationApp(
                     onNavigateToProfile = {
                         navController.navigate("patient_profile")
                     },
+                    onNavigateToMessages = {
+                        navController.navigate("patient_messages")
+                    },
                     onAddMedication = {
                         navController.navigate("add_medication")
                     },
@@ -234,6 +237,9 @@ fun MedicationApp(
                     },
                     onNavigateToProfile = {
                         navController.navigate("patient_profile")
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate("patient_messages")
                     }
                 )
             }
@@ -277,6 +283,9 @@ fun MedicationApp(
                     },
                     onNavigateToProfile = {
                         navController.navigate("patient_profile")
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate("patient_messages")
                     }
                 )
             }
@@ -300,10 +309,32 @@ fun MedicationApp(
                     onNavigateToHistory = {
                         navController.navigate("adherence_history")
                     },
+                    onNavigateToMessages = {
+                        navController.navigate("patient_messages")
+                    },
                     onNavigateToEditProfile = {
                         navController.navigate("edit_profile")
                     },
                     onLogout = handleLogout
+                )
+            }
+            
+            composable("patient_messages") {
+                PatientMessagesScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("patient_dashboard") { inclusive = true }
+                        }
+                    },
+                    onNavigateToMedications = {
+                        navController.navigate("medications_list")
+                    },
+                    onNavigateToHistory = {
+                        navController.navigate("adherence_history")
+                    }
                 )
             }
             
@@ -370,6 +401,11 @@ fun MedicationApp(
                     },
                     onNavigateToReports = {
                         navController.navigate("family_reports")
+                    },
+                    onNavigateToPatientDetails = { patientId ->
+                        // For MVP, navigate to patient dashboard or show details
+                        // This can be expanded later with a dedicated patient details screen
+                        navController.navigate("family_dashboard")
                     }
                 )
             }

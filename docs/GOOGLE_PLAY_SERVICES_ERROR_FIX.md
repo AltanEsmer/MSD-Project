@@ -28,7 +28,7 @@ Common scenarios:
 
 The fix makes FCM initialization **graceful and non-blocking**:
 
-1. **Google Play Services Check**: Before initializing FCM, the app checks if Google Play Services is available
+1. **Global Exception Handler**: Catches SecurityExceptions from Google Play Services in background threads (like GoogleApiManager)
 2. **Error Handling**: Wraps FCM initialization in try-catch blocks to handle SecurityException and other exceptions
 3. **Non-Blocking**: The app continues to function normally even if FCM fails to initialize
 4. **Logging**: Logs warnings instead of crashing, so developers can diagnose issues
@@ -36,20 +36,21 @@ The fix makes FCM initialization **graceful and non-blocking**:
 ### Code Changes
 
 **MedicationApp.kt**:
-- Added `isGooglePlayServicesAvailable()` method to check availability
+- Removed `GoogleApiAvailability` check (it was also throwing SecurityException)
+- Enhanced global uncaught exception handler to catch Google Play Services errors in background threads
 - Modified `initializeFCM()` to handle exceptions gracefully
-- Only initializes FCM if Google Play Services is available
+- Improved error detection to catch "GoogleApiManager" and "com.google.android.gms" errors
 
-**build.gradle.kts**:
-- Added `play-services-base` dependency for GoogleApiAvailability
+**Note**: The app no longer checks Google Play Services availability before initializing FCM, as that check itself can throw SecurityException. Instead, we catch errors when they occur.
 
 ## How It Works
 
-1. On app startup, `onCreate()` checks if Google Play Services is available
-2. If available, FCM initialization proceeds
-3. If unavailable, a warning is logged and the app continues
+1. On app startup, `onCreate()` sets up a global uncaught exception handler
+2. The handler catches SecurityExceptions from Google Play Services (including background threads like GoogleApiManager)
+3. FCM initialization proceeds directly (no pre-check)
 4. If FCM initialization fails (SecurityException, etc.), it's caught and logged
 5. The app continues to function normally - only push notifications will be unavailable
+6. Errors are logged with helpful messages indicating SHA-1 fingerprint registration is needed
 
 ## Testing
 
@@ -83,19 +84,28 @@ Verify `app/google-services.json` has the correct package name:
 "package_name": "com.medicationadherence.app"
 ```
 
-### 3. Add SHA-1 Fingerprint (Optional)
-For additional Firebase features, add your app's SHA-1 fingerprint to Firebase Console:
+### 3. Add SHA-1/SHA-256 Fingerprint (Required for FCM)
 
-**Get SHA-1:**
+**⚠️ IMPORTANT**: This is required to fix the SecurityException error!
+
+**Quick Reference**: See [FINGERPRINT_QUICK_REFERENCE.md](./FINGERPRINT_QUICK_REFERENCE.md) for your specific fingerprints.
+
+**Get SHA-1/SHA-256:**
 ```bash
-# Debug keystore
-keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+# Using Gradle (Recommended)
+./gradlew signingReport
 
-# Release keystore (if applicable)
-keytool -list -v -keystore [path-to-keystore] -alias [alias]
+# Or using keytool
+# Debug keystore (Windows)
+keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
+
+# Debug keystore (Mac/Linux)
+keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
 ```
 
-Then add it in Firebase Console → Project Settings → Your Android App → Add fingerprint
+**Detailed Guide**: See [SHA1_FINGERPRINT_SETUP.md](./SHA1_FINGERPRINT_SETUP.md) for complete instructions.
+
+Then add both SHA-1 and SHA-256 in Firebase Console → Project Settings → Your Android App → Add fingerprint
 
 ### 4. Update Google Play Services
 On physical devices, ensure Google Play Services is up to date:
@@ -131,6 +141,8 @@ When testing FCM, use an emulator with Google Play Services:
 - `app/build.gradle.kts`
 - `app/google-services.json`
 - `docs/FIREBASE_SETUP_GUIDE.md`
+- `docs/SHA1_FINGERPRINT_SETUP.md` - Detailed fingerprint setup guide
+- `docs/FINGERPRINT_QUICK_REFERENCE.md` - Quick reference with your fingerprints
 
 ## References
 
