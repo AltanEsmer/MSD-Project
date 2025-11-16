@@ -39,6 +39,7 @@ fun FamilyDashboardScreen(
     onSwitchToPatientMode: () -> Unit = {}
 ) {
     val patients by viewModel.patients.collectAsState()
+    val recentActivity by viewModel.recentActivity.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val context = LocalContext.current
@@ -63,19 +64,6 @@ fun FamilyDashboardScreen(
 
     val avgAdherence = viewModel.getAverageAdherence()
     val activeAlerts = viewModel.getActiveAlertsCount()
-    
-    val recentActivity = if (patients.isNotEmpty()) {
-        listOf(
-            Activity(
-                patient = patients.firstOrNull()?.patient?.name ?: "Patient",
-                action = "Took morning medication",
-                time = "8:30 AM",
-                type = "success"
-            )
-        )
-    } else {
-        emptyList()
-    }
     
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -244,7 +232,7 @@ fun FamilyDashboardScreen(
                 }
                 
                 // Recent Activity
-                if (patients.isNotEmpty()) {
+                if (patients.isNotEmpty() && recentActivity.isNotEmpty()) {
                     item {
                         Text(
                             text = "Recent Activity",
@@ -264,7 +252,10 @@ fun FamilyDashboardScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 recentActivity.forEach { activity ->
-                                    ActivityItem(activity = activity)
+                                    ActivityItemReal(
+                                        activity = activity,
+                                        viewModel = viewModel
+                                    )
                                 }
                             }
                         }
@@ -474,6 +465,64 @@ private fun PatientCard(patientWithStats: FamilyDashboardViewModel.PatientWithSt
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ActivityItemReal(
+    activity: com.medicationadherence.app.domain.model.ActivityItem,
+    viewModel: FamilyDashboardViewModel
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(
+                    when (activity.actionType) {
+                        com.medicationadherence.app.domain.model.ActivityType.TOOK_MEDICATION -> Green100
+                        com.medicationadherence.app.domain.model.ActivityType.MISSED_DOSE -> Red100
+                        com.medicationadherence.app.domain.model.ActivityType.SKIPPED_MEDICATION -> Orange100
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = when (activity.actionType) {
+                    com.medicationadherence.app.domain.model.ActivityType.TOOK_MEDICATION -> Icons.Default.CheckCircle
+                    com.medicationadherence.app.domain.model.ActivityType.MISSED_DOSE -> Icons.Default.Error
+                    com.medicationadherence.app.domain.model.ActivityType.SKIPPED_MEDICATION -> Icons.Default.Warning
+                },
+                contentDescription = null,
+                tint = when (activity.actionType) {
+                    com.medicationadherence.app.domain.model.ActivityType.TOOK_MEDICATION -> Green600
+                    com.medicationadherence.app.domain.model.ActivityType.MISSED_DOSE -> Red600
+                    com.medicationadherence.app.domain.model.ActivityType.SKIPPED_MEDICATION -> Orange600
+                },
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = activity.patientName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = activity.action + (activity.medicationName?.let { " - $it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = Gray600
+            )
+            Text(
+                text = viewModel.formatRelativeTime(activity.timestamp),
+                style = MaterialTheme.typography.labelSmall,
+                color = Gray500
+            )
         }
     }
 }

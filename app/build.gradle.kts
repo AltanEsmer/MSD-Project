@@ -88,6 +88,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
     
+    // Google Play Services (for availability check)
+    implementation("com.google.android.gms:play-services-base:18.2.0")
+    
     // Hilt Dependency Injection
     implementation("com.google.dagger:hilt-android:2.48")
     ksp("com.google.dagger:hilt-compiler:2.48")

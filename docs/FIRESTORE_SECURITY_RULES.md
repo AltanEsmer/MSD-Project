@@ -91,6 +91,23 @@ service cloud.firestore {
                        resource.data.userId == request.auth.uid;
     }
     
+    // Alerts Collection: /alerts/{alertId}
+    // Alerts are generated for caregivers monitoring patients
+    // Any authenticated user can read/write alerts
+    match /alerts/{alertId} {
+      // Allow read if authenticated (caregivers can see all alerts)
+      allow read: if isAuthenticated();
+      
+      // Allow create if authenticated (when alerts are generated)
+      allow create: if isAuthenticated();
+      
+      // Allow update if authenticated (for dismiss/resolve)
+      allow update: if isAuthenticated();
+      
+      // Allow delete if authenticated (for cleanup)
+      allow delete: if isAuthenticated();
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
@@ -110,7 +127,12 @@ service cloud.firestore {
    - Caregivers can read adherence records for patients with sharing enabled
    - The app filters by `shareDataEnabled` when querying
 
-3. **Security**:
+3. **Alerts**:
+   - Any authenticated user can read/write alerts
+   - Alerts are generated automatically from adherence data
+   - Caregivers can dismiss/resolve alerts
+
+4. **Security**:
    - All operations require authentication
    - Users can only create/update/delete their own data
    - Caregivers have read-only access to shared patient data
@@ -128,4 +150,11 @@ service cloud.firestore {
 After updating the rules, test in the Rules Playground:
 - Test reading a patient document with `shareDataEnabled = true` as a different authenticated user
 - Test reading adherence records for a patient with sharing enabled
+- Test reading/writing alerts as an authenticated user
+
+## Important: Alerts Collection
+
+⚠️ **Make sure you add the alerts collection rules!** If your rules don't include the `alerts` collection, the Alerts page will fail with permission errors even if Google Play Services is working.
+
+The default deny rule at the end (`match /{document=**} { allow read, write: if false; }`) will block access to the alerts collection if you don't explicitly allow it.
 

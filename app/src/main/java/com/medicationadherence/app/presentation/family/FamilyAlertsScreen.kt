@@ -15,12 +15,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import android.widget.Toast
+import com.medicationadherence.app.domain.model.Alert
+import com.medicationadherence.app.domain.model.AlertType
 import com.medicationadherence.app.presentation.common.components.BottomNavBar
 import com.medicationadherence.app.presentation.common.components.BottomNavItem
 import com.medicationadherence.app.presentation.common.components.EmptyState
 import com.medicationadherence.app.presentation.theme.*
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * Family Alerts Screen - View and manage alerts for monitored patients
@@ -28,62 +36,31 @@ import com.medicationadherence.app.presentation.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FamilyAlertsScreen(
+    viewModel: FamilyAlertsViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToHome: () -> Unit = {},
     onNavigateToMessages: () -> Unit = {},
     onNavigateToReports: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(0) }
+    val alerts by viewModel.alerts.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val context = LocalContext.current
     
-    // Mock alerts data
-    val mockAlerts = listOf(
-        AlertItem(
-            id = "1",
-            type = "critical",
-            patientName = "John Smith",
-            message = "Missed evening medication dose",
-            timestamp = "2 hours ago",
-            medication = "Insulin"
-        ),
-        AlertItem(
-            id = "2",
-            type = "warning",
-            patientName = "John Smith",
-            message = "Low adherence rate - 65% this week",
-            timestamp = "5 hours ago",
-            medication = "Multiple medications"
-        ),
-        AlertItem(
-            id = "3",
-            type = "info",
-            patientName = "John Smith",
-            message = "Medication refill due in 3 days",
-            timestamp = "1 day ago",
-            medication = "Blood pressure medication"
-        ),
-        AlertItem(
-            id = "4",
-            type = "warning",
-            patientName = "John Smith",
-            message = "Missed morning dose detected",
-            timestamp = "2 days ago",
-            medication = "Cholesterol medication"
-        ),
-        AlertItem(
-            id = "5",
-            type = "info",
-            patientName = "John Smith",
-            message = "Regular check-in reminder",
-            timestamp = "3 days ago",
-            medication = "General reminder"
-        )
-    )
+    // Show error toast if there's an error
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        }
+    }
     
     val filteredAlerts = when (selectedTab) {
-        1 -> mockAlerts.filter { it.type == "critical" }
-        2 -> mockAlerts.filter { it.type == "warning" || it.type == "critical" }
-        3 -> mockAlerts.filter { it.type == "warning" || it.type == "critical" }
-        else -> mockAlerts
+        0 -> viewModel.getFilteredAlerts(AlertFilter.ALL)
+        1 -> viewModel.getFilteredAlerts(AlertFilter.CRITICAL)
+        2 -> viewModel.getFilteredAlerts(AlertFilter.MISSED_DOSES)
+        3 -> viewModel.getFilteredAlerts(AlertFilter.LOW_ADHERENCE)
+        else -> alerts
     }
     
     Box(modifier = Modifier.fillMaxSize()) {
@@ -157,7 +134,16 @@ fun FamilyAlertsScreen(
                 contentPadding = PaddingValues(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (filteredAlerts.isEmpty()) {
+                if (isLoading && filteredAlerts.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Purple600)
+                        }
+                    }
+                } else if (filteredAlerts.isEmpty()) {
                     item {
                         EmptyState(
                             icon = Icons.Default.NotificationsOff,
@@ -169,7 +155,12 @@ fun FamilyAlertsScreen(
                     }
                 } else {
                     items(filteredAlerts) { alert ->
-                        AlertCard(alert = alert)
+                        AlertCardReal(
+                            alert = alert,
+                            onDismiss = { viewModel.dismissAlert(alert.id) },
+                            onResolve = { viewModel.resolveAlert(alert.id) },
+                            viewModel = viewModel
+                        )
                     }
                 }
                 
@@ -199,6 +190,160 @@ fun FamilyAlertsScreen(
             ),
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+    }
+}
+
+@Composable
+private fun AlertCardReal(
+    alert: Alert,
+    onDismiss: () -> Unit,
+    onResolve: () -> Unit,
+    viewModel: FamilyAlertsViewModel
+) {
+    val iconColor = when (alert.type) {
+        AlertType.CRITICAL -> Red600
+        AlertType.WARNING -> Orange600
+        AlertType.INFO -> Blue600
+    }
+    
+    val iconBackground = when (alert.type) {
+        AlertType.CRITICAL -> Red100
+        AlertType.WARNING -> Orange100
+        AlertType.INFO -> Blue100
+    }
+    
+    val icon = when (alert.type) {
+        AlertType.CRITICAL -> Icons.Default.Error
+        AlertType.WARNING -> Icons.Default.Warning
+        AlertType.INFO -> Icons.Default.Info
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(iconBackground),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = alert.patientName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = alert.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Gray600
+                    )
+                    alert.medicationName?.let { medication ->
+                        Text(
+                            text = medication,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Gray500
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = formatTimestamp(alert.timestamp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Gray400
+                    )
+                }
+            }
+            
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { /* View patient */ },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Visibility,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("View")
+                }
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Dismiss")
+                }
+                OutlinedButton(
+                    onClick = { /* Contact */ },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Phone,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Format timestamp to relative time
+ */
+private fun formatTimestamp(timestamp: kotlinx.datetime.LocalDateTime): String {
+    val now = Clock.System.now()
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+    
+    val daysDiff = now.date.toEpochDays() - timestamp.date.toEpochDays()
+    
+    return when {
+        daysDiff == 0 -> {
+            val hoursDiff = now.hour - timestamp.hour
+            when {
+                hoursDiff == 0 -> "Just now"
+                hoursDiff == 1 -> "1 hour ago"
+                hoursDiff < 24 -> "$hoursDiff hours ago"
+                else -> "Today"
+            }
+        }
+        daysDiff == 1 -> "Yesterday"
+        daysDiff < 7 -> "$daysDiff days ago"
+        else -> "${daysDiff / 7} weeks ago"
     }
 }
 

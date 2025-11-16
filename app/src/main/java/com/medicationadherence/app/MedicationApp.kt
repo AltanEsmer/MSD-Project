@@ -11,6 +11,8 @@ import android.os.Build
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.medicationadherence.app.data.firestore.FirestoreTokenDataSource
@@ -55,7 +57,13 @@ class MedicationApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
-        initializeFCM()
+        
+        // Only initialize FCM if Google Play Services is available
+        if (isGooglePlayServicesAvailable()) {
+            initializeFCM()
+        } else {
+            Log.w("MedicationApp", "Google Play Services not available. FCM will be disabled.")
+        }
         
         // Register receiver for FCM token refresh
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -82,18 +90,44 @@ class MedicationApp : Application(), Configuration.Provider {
     }
     
     /**
+     * Check if Google Play Services is available
+     */
+    private fun isGooglePlayServicesAvailable(): Boolean {
+        val apiAvailability = GoogleApiAvailability.getInstance()
+        val resultCode = apiAvailability.isGooglePlayServicesAvailable(this)
+        return resultCode == ConnectionResult.SUCCESS
+    }
+    
+    /**
      * Initialize Firebase Cloud Messaging
+     * Handles errors gracefully if Google Play Services is not available
      */
     private fun initializeFCM() {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w("MedicationApp", "Failed to get FCM token", task.exception)
-                return@addOnCompleteListener
-            }
+        try {
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    val exception = task.exception
+                    if (exception != null) {
+                        Log.w("MedicationApp", "Failed to get FCM token: ${exception.message}", exception)
+                        // Check if it's a Google Play Services issue
+                        if (exception.message?.contains("Google Play Services") == true ||
+                            exception.message?.contains("com.google.android.gms") == true) {
+                            Log.w("MedicationApp", "Google Play Services issue detected. FCM disabled.")
+                        }
+                    }
+                    return@addOnCompleteListener
+                }
 
-            val token = task.result
-            Log.d("MedicationApp", "FCM token: $token")
-            saveFcmToken(token)
+                val token = task.result
+                Log.d("MedicationApp", "FCM token: $token")
+                saveFcmToken(token)
+            }
+        } catch (e: SecurityException) {
+            Log.w("MedicationApp", "SecurityException when initializing FCM: ${e.message}", e)
+            // App can continue without FCM
+        } catch (e: Exception) {
+            Log.w("MedicationApp", "Exception when initializing FCM: ${e.message}", e)
+            // App can continue without FCM
         }
     }
     

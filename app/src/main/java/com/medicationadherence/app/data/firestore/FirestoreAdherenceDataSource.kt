@@ -6,6 +6,9 @@ import com.medicationadherence.app.data.firestore.mapper.toFirestoreMap
 import com.medicationadherence.app.domain.model.AdherenceRecord
 import kotlinx.coroutines.tasks.await
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -100,5 +103,67 @@ class FirestoreAdherenceDataSource @Inject constructor(
             Result.failure(Exception("Failed to delete adherence record: ${e.message}", e))
         }
     }
+
+    /**
+     * Get recent adherence records for all patients (for activity timeline)
+     */
+    suspend fun getRecentAdherenceRecordsForAllPatients(days: Int = 7): List<AdherenceRecordWithPatient> {
+        return try {
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            // Use java.time for date arithmetic (same pattern as rest of codebase)
+            val javaDate = java.time.LocalDate.of(now.date.year, now.date.monthNumber, now.date.dayOfMonth)
+                .minusDays(days.toLong())
+            val startDate = LocalDate(javaDate.year, javaDate.monthValue, javaDate.dayOfMonth).toString()
+
+            val snapshot = firestore.collection(COLLECTION_ADHERENCE)
+                .whereGreaterThanOrEqualTo(FIELD_DATE, startDate)
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    val userId = data[FIELD_USER_ID] as? String ?: return@mapNotNull null
+                    val record = data.toAdherenceRecord() ?: return@mapNotNull null
+                    AdherenceRecordWithPatient(
+                        userId = userId,
+                        record = record,
+                        medicationName = data["medicationName"] as? String
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch recent adherence records: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Get all adherence records for a specific user
+     */
+    suspend fun getAllAdherenceRecordsForUser(userId: String): List<AdherenceRecord> {
+        return try {
+            val snapshot = firestore.collection(COLLECTION_ADHERENCE)
+                .whereEqualTo(FIELD_USER_ID, userId)
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                doc.data?.toAdherenceRecord()
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch adherence records for user: ${e.message}", e)
+        }
+    }
 }
+
+/**
+ * Data class for adherence record with patient information
+ */
+data class AdherenceRecordWithPatient(
+    val userId: String,
+    val record: AdherenceRecord,
+    val medicationName: String?
+)
 
