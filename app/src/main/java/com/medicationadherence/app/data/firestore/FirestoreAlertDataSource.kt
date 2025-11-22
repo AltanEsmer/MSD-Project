@@ -46,10 +46,54 @@ class FirestoreAlertDataSource @Inject constructor(
     }
 
     /**
+     * Get all active alerts for a specific user (not dismissed)
+     */
+    suspend fun getActiveAlertsForUser(userId: String): List<Alert> {
+        return try {
+            val snapshot = firestore.collection(COLLECTION_ALERTS)
+                .whereEqualTo("patientId", userId)
+                .whereEqualTo("isDismissed", false)
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                doc.toAlert()
+            }
+        } catch (e: SecurityException) {
+            // Google Play Services issue - return empty list instead of crashing
+            emptyList()
+        } catch (e: Exception) {
+            // Other errors - return empty list to prevent crashes
+            emptyList()
+        }
+    }
+
+    /**
      * Setup real-time listener for active alerts
      */
     fun listenToAlerts(onAlertsChanged: (List<Alert>) -> Unit): () -> Unit {
         val registration = firestore.collection(COLLECTION_ALERTS)
+            .whereEqualTo("isDismissed", false)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    return@addSnapshotListener
+                }
+                
+                val alerts = snapshot.documents.mapNotNull { doc ->
+                    doc.toAlert()
+                }
+                onAlertsChanged(alerts)
+            }
+        
+        return { registration.remove() }
+    }
+
+    /**
+     * Setup real-time listener for active alerts for a specific user
+     */
+    fun listenToAlertsForUser(userId: String, onAlertsChanged: (List<Alert>) -> Unit): () -> Unit {
+        val registration = firestore.collection(COLLECTION_ALERTS)
+            .whereEqualTo("patientId", userId)
             .whereEqualTo("isDismissed", false)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) {

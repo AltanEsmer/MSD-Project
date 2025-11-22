@@ -205,6 +205,12 @@ fun MedicationApp(
                     onNavigateToMessages = {
                         navController.navigate("patient_messages")
                     },
+                    onNavigateToReports = {
+                        navController.navigate("patient_reports")
+                    },
+                    onNavigateToAlerts = {
+                        navController.navigate("patient_alerts")
+                    },
                     onAddMedication = {
                         navController.navigate("add_medication")
                     },
@@ -334,6 +340,9 @@ fun MedicationApp(
                     },
                     onNavigateToHistory = {
                         navController.navigate("adherence_history")
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate("patient_profile")
                     }
                 )
             }
@@ -345,6 +354,45 @@ fun MedicationApp(
                     },
                     onCancel = {
                         navController.popBackStack()
+                    }
+                )
+            }
+            
+            // Patient Reports and Alerts Screens
+            composable("patient_reports") {
+                PatientReportsScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("patient_reports") { inclusive = true }
+                        }
+                    },
+                    onNavigateToAlerts = {
+                        navController.navigate("patient_alerts")
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate("patient_messages")
+                    }
+                )
+            }
+            
+            composable("patient_alerts") {
+                PatientAlertsScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("patient_dashboard") {
+                            popUpTo("patient_alerts") { inclusive = true }
+                        }
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate("patient_messages")
+                    },
+                    onNavigateToReports = {
+                        navController.navigate("patient_reports")
                     }
                 )
             }

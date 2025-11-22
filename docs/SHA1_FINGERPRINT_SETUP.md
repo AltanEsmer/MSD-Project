@@ -178,3 +178,5 @@ If you're still having issues:
 - Only affects Firebase Cloud Messaging (FCM) functionality
 - Firestore, Auth, and other Firebase features work without SHA-1 registration
 
+
+

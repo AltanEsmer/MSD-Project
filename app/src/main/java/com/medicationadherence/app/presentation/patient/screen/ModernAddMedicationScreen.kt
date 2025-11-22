@@ -58,6 +58,42 @@ fun ModernAddMedicationScreen(
     var dosageError by remember { mutableStateOf(false) }
     var showValidationError by remember { mutableStateOf(false) }
     
+    // Function to get default times based on frequency
+    fun getDefaultTimesForFrequency(freq: String): List<String> {
+        return when (freq) {
+            "Once daily" -> listOf("08:00")
+            "Twice daily" -> listOf("08:00", "20:00")
+            "Three times daily" -> listOf("08:00", "14:00", "20:00")
+            "Four times daily" -> listOf("08:00", "12:00", "16:00", "20:00")
+            "Every 4 hours" -> listOf("00:00", "04:00", "08:00", "12:00", "16:00", "20:00")
+            "Every 6 hours" -> listOf("00:00", "06:00", "12:00", "18:00")
+            "Every 8 hours" -> listOf("00:00", "08:00", "16:00")
+            "As needed" -> listOf("08:00") // Keep flexible, user can modify
+            "Weekly" -> listOf("08:00") // Keep flexible, user can modify
+            else -> listOf("08:00")
+        }
+    }
+    
+    // Function to infer frequency from number of times (for editing existing medications)
+    fun inferFrequencyFromTimes(timesList: List<String>): String {
+        return when {
+            // Check for hourly patterns first
+            timesList.size == 6 && timesList.contains("00:00") && timesList.contains("04:00") && 
+            timesList.contains("08:00") && timesList.contains("12:00") && timesList.contains("16:00") && 
+            timesList.contains("20:00") -> "Every 4 hours"
+            timesList.size == 4 && timesList.contains("00:00") && timesList.contains("06:00") && 
+            timesList.contains("12:00") && timesList.contains("18:00") -> "Every 6 hours"
+            timesList.size == 3 && timesList.contains("00:00") && timesList.contains("08:00") && 
+            timesList.contains("16:00") -> "Every 8 hours"
+            // Then check by count
+            timesList.size == 1 -> "Once daily"
+            timesList.size == 2 -> "Twice daily"
+            timesList.size == 3 -> "Three times daily"
+            timesList.size == 4 -> "Four times daily"
+            else -> "Once daily" // Fallback
+        }
+    }
+    
     // Populate fields when medication data loads
     LaunchedEffect(medicationToEdit) {
         medicationToEdit?.let { med ->
@@ -67,6 +103,8 @@ fun ModernAddMedicationScreen(
             times = med.frequency
             instructions = med.instructions
             importance = med.importance
+            // Infer frequency from times for display in dropdown
+            frequency = inferFrequencyFromTimes(med.frequency)
         }
     }
     
@@ -248,6 +286,8 @@ fun ModernAddMedicationScreen(
                                     text = { Text(option) },
                                     onClick = {
                                         frequency = option
+                                        // Automatically update times based on selected frequency
+                                        times = getDefaultTimesForFrequency(option)
                                         expanded = false
                                     }
                                 )

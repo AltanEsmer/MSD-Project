@@ -38,6 +38,8 @@ fun ModernPatientDashboardScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToMessages: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToAlerts: () -> Unit = {},
     onAddMedication: () -> Unit,
     onSwitchToCaregiverMode: () -> Unit = {}
 ) {

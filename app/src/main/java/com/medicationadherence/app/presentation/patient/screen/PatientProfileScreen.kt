@@ -53,10 +53,6 @@ fun PatientProfileScreen(
     val bloodType = profile?.bloodType
     var notifications by remember { mutableStateOf(true) }
     var sound by remember { mutableStateOf(true) }
-    var textSize by remember { mutableStateOf(16f) }
-    var highContrast by remember { mutableStateOf(false) }
-    var voiceGuidance by remember { mutableStateOf(false) }
-    var simplifiedMode by remember { mutableStateOf(false) }
     
     if (isLoading) {
         Box(
@@ -269,88 +265,6 @@ fun PatientProfileScreen(
                                 subtitle = "Alert sounds",
                                 checked = sound,
                                 onCheckedChange = { sound = it }
-                            )
-                        }
-                    }
-                }
-                
-                // Accessibility Settings
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Purple100),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.Accessibility,
-                                        contentDescription = null,
-                                        tint = Purple600,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Text(
-                                    text = "Accessibility",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    text = "Text Size",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("A", style = MaterialTheme.typography.bodySmall)
-                                    Slider(
-                                        value = textSize,
-                                        onValueChange = { textSize = it },
-                                        valueRange = 12f..24f,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text("A", style = MaterialTheme.typography.headlineSmall)
-                                }
-                            }
-                            
-                            SettingItem(
-                                title = "High Contrast Mode",
-                                subtitle = null,
-                                checked = highContrast,
-                                onCheckedChange = { highContrast = it }
-                            )
-                            
-                            SettingItem(
-                                title = "Voice Guidance",
-                                subtitle = null,
-                                checked = voiceGuidance,
-                                onCheckedChange = { voiceGuidance = it }
-                            )
-                            
-                            SettingItem(
-                                title = "Simplified Interface",
-                                subtitle = null,
-                                checked = simplifiedMode,
-                                onCheckedChange = { simplifiedMode = it }
                             )
                         }
                     }

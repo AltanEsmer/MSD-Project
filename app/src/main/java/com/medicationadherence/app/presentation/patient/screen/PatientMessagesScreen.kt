@@ -43,7 +43,8 @@ fun PatientMessagesScreen(
     onBack: () -> Unit = {},
     onNavigateToHome: () -> Unit = {},
     onNavigateToMedications: () -> Unit = {},
-    onNavigateToHistory: () -> Unit = {}
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val conversations by viewModel.conversations.collectAsState()
     val selectedConversation by viewModel.selectedConversation.collectAsState()
@@ -241,7 +242,7 @@ fun PatientMessagesScreen(
                         1 -> onNavigateToMedications()
                         2 -> onNavigateToHistory()
                         3 -> {} // Already on messages
-                        4 -> {} // Profile - not used in patient messages screen
+                        4 -> onNavigateToProfile()
                     }
                 },
                 items = listOf(
